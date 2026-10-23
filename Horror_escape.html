@@ -1,0 +1,1462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#07050a">
+<title>Curse of Blackthorn Fort — Portable Horror Escape</title>
+<style>
+  :root {
+    --blood: #b81414;
+    --crimson: #ff2e2e;
+    --gold: #d9b25f;
+    --cyan: #59d8e6;
+    --bg: #050408;
+    --panel: rgba(12, 9, 18, 0.88);
+  }
+  * {
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    margin: 0;
+    padding: 0;
+  }
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    font-family: 'Georgia', 'Times New Roman', serif;
+    color: #e6dfd5;
+    touch-action: none;
+  }
+  #game-wrapper {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at center, #110c19 0%, #030205 100%);
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.95);
+    background: #060509;
+  }
+
+  /* Top HUD Bar */
+  #hud-bar {
+    position: absolute;
+    top: env(safe-area-inset-top, 10px);
+    left: 12px;
+    right: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+    z-index: 15;
+    flex-wrap: wrap;
+  }
+  .hud-card {
+    background: var(--panel);
+    border: 1px solid rgba(217, 178, 95, 0.35);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: clamp(11px, 1.8vw, 14px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    pointer-events: auto;
+  }
+  .hud-badge {
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.9em;
+    letter-spacing: 0.5px;
+  }
+  .badge-room { background: rgba(184, 20, 20, 0.35); border: 1px solid #d43535; color: #ffcccc; }
+  .badge-key-no { background: rgba(60, 60, 75, 0.5); border: 1px solid #666; color: #aaa; }
+  .badge-key-yes { background: rgba(217, 178, 95, 0.3); border: 1px solid var(--gold); color: #ffe699; animation: pulseGold 1.4s infinite; }
+
+  @keyframes pulseGold {
+    0%, 100% { box-shadow: 0 0 4px rgba(217,178,95,0.4); }
+    50% { box-shadow: 0 0 14px rgba(217,178,95,0.95); }
+  }
+
+  .hud-btn {
+    background: rgba(28, 22, 38, 0.9);
+    color: #e6dfd5;
+    border: 1px solid rgba(217, 178, 95, 0.5);
+    border-radius: 5px;
+    padding: 5px 9px;
+    font-size: clamp(11px, 1.6vw, 13px);
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .hud-btn:active, .hud-btn:hover {
+    background: rgba(184, 20, 20, 0.6);
+  }
+
+  /* Center Context Prompt / Clue Modal */
+  #prompt-banner {
+    position: absolute;
+    bottom: 22%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(10, 7, 15, 0.92);
+    border: 1px solid var(--gold);
+    color: #fff4d6;
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: clamp(13px, 2.2vw, 17px);
+    text-align: center;
+    pointer-events: auto;
+    cursor: pointer;
+    z-index: 16;
+    display: none;
+    box-shadow: 0 0 22px rgba(0, 0, 0, 0.9);
+    max-width: 90vw;
+  }
+
+  #clue-modal {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(92vw, 480px);
+    background: radial-gradient(circle, #211726 0%, #0d0811 100%);
+    border: 2px solid var(--gold);
+    border-radius: 10px;
+    padding: 20px;
+    z-index: 30;
+    display: none;
+    text-align: center;
+    box-shadow: 0 0 50px rgba(0,0,0,0.95);
+  }
+  #clue-modal h3 {
+    color: var(--gold);
+    margin-bottom: 10px;
+    letter-spacing: 1px;
+    font-size: 1.25rem;
+  }
+  #clue-modal p {
+    font-style: italic;
+    line-height: 1.5;
+    color: #f3e5ab;
+    font-size: 1.05rem;
+    margin-bottom: 14px;
+    padding: 12px;
+    background: rgba(0,0,0,0.45);
+    border-left: 3px solid var(--blood);
+  }
+
+  /* Title & Jumpscare Overlays */
+  .overlay-screen {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(25, 10, 18, 0.92) 0%, rgba(4, 3, 7, 0.98) 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 40;
+    text-align: center;
+  }
+  .overlay-box {
+    max-width: 600px;
+    width: 94%;
+    background: rgba(12, 8, 16, 0.92);
+    border: 1px solid rgba(217, 178, 95, 0.45);
+    border-radius: 12px;
+    padding: clamp(16px, 3vw, 28px);
+    box-shadow: 0 0 60px rgba(184, 20, 20, 0.35);
+  }
+  .title-main {
+    font-size: clamp(24px, 5vw, 42px);
+    color: var(--crimson);
+    text-shadow: 0 0 18px rgba(255, 30, 30, 0.7);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+  .subtitle {
+    color: var(--gold);
+    font-size: clamp(13px, 2.2vw, 16px);
+    margin-bottom: 16px;
+  }
+  .rules-list {
+    text-align: left;
+    font-size: clamp(12px, 2vw, 14.5px);
+    line-height: 1.55;
+    color: #d8d0c5;
+    margin-bottom: 18px;
+    background: rgba(0,0,0,0.4);
+    padding: 12px 16px;
+    border-radius: 8px;
+    border-left: 3px solid var(--crimson);
+  }
+  .rules-list li {
+    margin-bottom: 6px;
+    list-style-position: inside;
+  }
+  .cta-btn {
+    background: linear-gradient(180deg, #a31515 0%, #5e0808 100%);
+    color: #fff;
+    border: 1px solid var(--gold);
+    padding: 12px 28px;
+    font-size: clamp(15px, 2.5vw, 19px);
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    font-family: inherit;
+    box-shadow: 0 0 20px rgba(184, 20, 20, 0.7);
+  }
+  .cta-btn:hover, .cta-btn:active {
+    background: linear-gradient(180deg, #cf1b1b 0%, #7d0b0b 100%);
+    transform: scale(1.03);
+  }
+
+  /* Touch Controls for Mobile / Tablets */
+  #touch-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 25;
+    display: none;
+  }
+  #touch-layer.active {
+    display: block;
+  }
+  #joystick-zone {
+    position: absolute;
+    bottom: max(18px, env(safe-area-inset-bottom, 18px));
+    left: max(18px, env(safe-area-inset-left, 18px));
+    width: clamp(110px, 24vw, 145px);
+    height: clamp(110px, 24vw, 145px);
+    border-radius: 50%;
+    background: rgba(20, 16, 28, 0.55);
+    border: 2px solid rgba(217, 178, 95, 0.45);
+    pointer-events: auto;
+    touch-action: none;
+  }
+  #joystick-knob {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 46px;
+    height: 46px;
+    margin-left: -23px;
+    margin-top: -23px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #e5c378 0%, #876323 100%);
+    box-shadow: 0 0 12px rgba(0,0,0,0.8);
+    pointer-events: none;
+  }
+  #action-pad {
+    position: absolute;
+    bottom: max(18px, env(safe-area-inset-bottom, 18px));
+    right: max(18px, env(safe-area-inset-right, 18px));
+    display: grid;
+    grid-template-columns: repeat(2, clamp(58px, 13vw, 72px));
+    grid-gap: 10px;
+    pointer-events: auto;
+  }
+  .touch-btn {
+    width: clamp(58px, 13vw, 72px);
+    height: clamp(58px, 13vw, 72px);
+    border-radius: 50%;
+    background: rgba(24, 18, 34, 0.78);
+    border: 2px solid rgba(217, 178, 95, 0.55);
+    color: #f5ebd6;
+    font-size: clamp(11px, 2.2vw, 13px);
+    font-weight: bold;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    touch-action: manipulation;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.75);
+  }
+  .touch-btn.btn-interact {
+    background: rgba(155, 22, 22, 0.82);
+    border-color: #ff9c7a;
+  }
+  .touch-btn.active-toggle {
+    background: rgba(217, 178, 95, 0.38);
+    border-color: #fff;
+  }
+</style>
+</head>
+<body>
+
+<div id="game-wrapper">
+  <canvas id="gameCanvas" width="1280" height="720"></canvas>
+
+  <!-- Top HUD -->
+  <div id="hud-bar">
+    <div class="hud-card">
+      <span id="hud-room" class="hud-badge badge-room">High Watchtower (Top of Fort)</span>
+      <span id="hud-key" class="hud-badge badge-key-no">Key: Missing</span>
+      <span id="hud-stealth" style="color:#9ad1d4;">Standing</span>
+    </div>
+    <div class="hud-card">
+      <span id="hud-stamina">Stamina: 100%</span>
+      <button class="hud-btn" id="btn-toggle-touch" title="Toggle On-Screen Touch Controls">📱 Touch UI</button>
+      <button class="hud-btn" id="btn-fullscreen" title="Toggle Fullscreen">⛶ Fullscreen</button>
+    </div>
+  </div>
+
+  <!-- Interactive Prompt Banner (Clickable on Mobile/Desktop) -->
+  <div id="prompt-banner">Press [E] or Tap Here to Interact</div>
+
+  <!-- Clue Board Modal -->
+  <div id="clue-modal">
+    <h3>📜 ANCIENT GARDEN CLUE BOARD</h3>
+    <p id="clue-text">"..."</p>
+    <div style="font-size:0.85rem; color:#aaa; margin-bottom:12px;">
+      (The Skeleton Key has shifted to a new hiding place in the Fort Garden!)
+    </div>
+    <button class="cta-btn" id="btn-close-clue" style="padding:8px 22px; font-size:15px;">Close Board</button>
+  </div>
+
+  <!-- Start / Reset / Finale Screen -->
+  <div class="overlay-screen" id="start-overlay">
+    <div class="overlay-box">
+      <h1 class="title-main" id="overlay-title">CURSE OF BLACKTHORN FORT</h1>
+      <div class="subtitle" id="overlay-sub">Portable Cross-Device Survival Horror Escape</div>
+      <ul class="rules-list" id="overlay-rules">
+        <li>🏰 <b>Start at the Top:</b> You begin trapped in the <b>High Watchtower</b> at the top of the haunted fort.</li>
+        <li>👻 <b>Don't Be Seen:</b> If a Ghost spots you in its red vision cone or touches you, the match <b>instantly restarts from the very beginning</b> with a newly randomized key & clue.</li>
+        <li>🚪 <b>Teleporting Doors & 2 True Gates:</b> Regular doors teleport you across haunted wings. Only <b>2 True Gates</b> (<i>Crimson Arch</i> & <i>Moonlit Iron Gate</i>) lead to the <b>Main Gate & Fort Garden</b>.</li>
+        <li>🗝️ <b>Shifting Clue Board & Garden Key:</b> Read the <b>Clue Board</b> beside the Main Gate. Every match & every visit, the clue and key location change inside the Fort Garden.</li>
+        <li>🎬 <b>Horror Film Finale:</b> Unlock the Main Gate with the key to escape and witness the trapped ghosts surge out of the fort!</li>
+      </ul>
+      <div style="font-size:12px; color:#b8b0a4; margin-bottom:14px;">
+        💻 <b>PC:</b> WASD/Arrows + E (Action) + Shift (Sprint) + C (Stealth) + F (Flashlight)<br>
+        📱 <b>Mobile/Tablet:</b> Virtual Joystick + Touch Buttons &nbsp;|&nbsp; 🎮 <b>Gamepad:</b> Left Stick + A/B/X/Y
+      </div>
+      <button class="cta-btn" id="btn-start-game">ENTER THE FORT</button>
+    </div>
+  </div>
+
+  <!-- Mobile / Tablet Virtual Controls -->
+  <div id="touch-layer">
+    <div id="joystick-zone">
+      <div id="joystick-knob"></div>
+    </div>
+    <div id="action-pad">
+      <button class="touch-btn btn-interact" id="t-interact">🖐️<span>ACT / E</span></button>
+      <button class="touch-btn" id="t-sprint">⚡<span>SPRINT</span></button>
+      <button class="touch-btn" id="t-crouch">🕵️<span>STEALTH</span></button>
+      <button class="touch-btn" id="t-light">🔦<span>LIGHT</span></button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = 1280, H = 720;
+
+  // UI Elements
+  const hudRoom = document.getElementById('hud-room');
+  const hudKey = document.getElementById('hud-key');
+  const hudStealth = document.getElementById('hud-stealth');
+  const hudStamina = document.getElementById('hud-stamina');
+  const promptBanner = document.getElementById('prompt-banner');
+  const clueModal = document.getElementById('clue-modal');
+  const clueTextEl = document.getElementById('clue-text');
+  const startOverlay = document.getElementById('start-overlay');
+  const overlayTitle = document.getElementById('overlay-title');
+  const overlaySub = document.getElementById('overlay-sub');
+  const btnStartGame = document.getElementById('btn-start-game');
+  const touchLayer = document.getElementById('touch-layer');
+
+  // Detect Touch Device Automatically
+  let touchEnabled = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  if (touchEnabled) touchLayer.classList.add('active');
+
+  document.getElementById('btn-toggle-touch').addEventListener('click', () => {
+    touchEnabled = !touchEnabled;
+    touchLayer.classList.toggle('active', touchEnabled);
+  });
+
+  document.getElementById('btn-fullscreen').addEventListener('click', () => {
+    const elem = document.documentElement;
+    if (!document.fullscreenElement) {
+      if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
+    } else {
+      if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    }
+  });
+
+  // Procedural Web Audio Horror Engine
+  let audioCtx = null;
+  function initAudio() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function playSound(type) {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    if (type === 'teleport') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(190, now);
+      osc.frequency.exponentialRampToValueAtTime(520, now + 0.35);
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+      osc.start(now);
+      osc.stop(now + 0.38);
+    } else if (type === 'truegate') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(260, now);
+      osc.frequency.exponentialRampToValueAtTime(680, now + 0.55);
+      gain.gain.setValueAtTime(0.22, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.58);
+      osc.start(now);
+      osc.stop(now + 0.58);
+    } else if (type === 'clue') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(340, now);
+      osc.frequency.setValueAtTime(440, now + 0.12);
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc.start(now);
+      osc.stop(now + 0.35);
+    } else if (type === 'key') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(587.33, now);
+      osc.frequency.setValueAtTime(880, now + 0.14);
+      gain.gain.setValueAtTime(0.25, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+      osc.start(now);
+      osc.stop(now + 0.55);
+    } else if (type === 'jumpscare') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(105, now);
+      osc.frequency.linearRampToValueAtTime(790, now + 0.15);
+      osc.frequency.linearRampToValueAtTime(75, now + 0.85);
+      gain.gain.setValueAtTime(0.38, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.88);
+      osc.start(now);
+      osc.stop(now + 0.88);
+    } else if (type === 'cinema') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(65, now);
+      osc.frequency.exponentialRampToValueAtTime(145, now + 3.5);
+      gain.gain.setValueAtTime(0.22, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 3.8);
+      osc.start(now);
+      osc.stop(now + 3.8);
+    }
+  }
+
+  // Garden Landmarks & Dynamic Clues
+  const GARDEN_SPOTS = [
+    {
+      id: 'angel',
+      name: 'Weeping Angel Statue',
+      x: 230, y: 230,
+      clue: '"Where stone wings weep beneath the storm, cold marble guards the iron form."'
+    },
+    {
+      id: 'fountain',
+      name: 'Dry Blood Fountain',
+      x: 1020, y: 230,
+      clue: '"No water flows where crimson dried; basin of stone where shadows hide."'
+    },
+    {
+      id: 'oak',
+      name: 'Hollowed Dead Oak',
+      x: 230, y: 540,
+      clue: '"Twisted roots and lightning-split bark; reach inside the hollow dark."'
+    },
+    {
+      id: 'well',
+      name: 'Sunken Wishing Well',
+      x: 1020, y: 540,
+      clue: '"A rusted bucket by the mossy rim; peer down the shaft where light grows dim."'
+    },
+    {
+      id: 'mausoleum',
+      name: 'Forsaken Mausoleum',
+      x: 490, y: 410,
+      clue: '"Upon the crypt of ancient kings, cold iron rests where nightwind sings."'
+    },
+    {
+      id: 'gazebo',
+      name: 'Thorny Rose Gazebo',
+      x: 790, y: 410,
+      clue: '"Beneath the dome of withered briar, the lock\'s salvation waits entire."'
+    }
+  ];
+
+  // Fort Rooms Definition
+  // Rooms 0..3 are Fort Wings; Room 4 is the Main Gate & Fort Garden
+  const ROOMS = [
+    {
+      id: 0,
+      name: 'High Watchtower (Top of Fort)',
+      bg: '#0c0914',
+      spawn: { x: 640, y: 610 },
+      walls: [
+        { x: 340, y: 260, w: 220, h: 36 },
+        { x: 720, y: 260, w: 220, h: 36 },
+        { x: 580, y: 420, w: 120, h: 40 }
+      ],
+      shadows: [
+        { x: 140, y: 180, r: 52 },
+        { x: 1120, y: 180, r: 52 },
+        { x: 200, y: 540, r: 52 }
+      ],
+      doors: [
+        { x: 180, y: 70, label: 'North Battlement Door', type: 'teleport', targets: [1, 2, 3] },
+        { x: 640, y: 70, label: 'Spiral Staircase Door', type: 'teleport', targets: [1, 2, 3] },
+        { x: 1100, y: 70, label: 'Trapdoor Passage', type: 'teleport', targets: [1, 2, 3] }
+      ],
+      ghosts: [
+        { x: 300, y: 180, vx: 2.1, vy: 0.9, range: 215, fov: 0.65 },
+        { x: 950, y: 460, vx: -1.9, vy: -1.2, range: 210, fov: 0.65 }
+      ]
+    },
+    {
+      id: 1,
+      name: 'East Dungeon Wing',
+      bg: '#0a1014',
+      spawn: { x: 160, y: 600 },
+      walls: [
+        { x: 300, y: 180, w: 40, h: 320 },
+        { x: 620, y: 280, w: 280, h: 40 },
+        { x: 940, y: 160, w: 40, h: 340 }
+      ],
+      shadows: [
+        { x: 170, y: 200, r: 54 },
+        { x: 650, y: 170, r: 54 },
+        { x: 820, y: 560, r: 54 }
+      ],
+      doors: [
+        { x: 640, y: 70, label: 'Cellar Warp Door', type: 'teleport', targets: [0, 2, 3] },
+        { x: 1140, y: 610, label: 'Torture Hall Door', type: 'teleport', targets: [0, 2, 3] },
+        { x: 1140, y: 130, label: 'TRUE GATE I: Crimson Arch', type: 'truegate', targets: [4] }
+      ],
+      ghosts: [
+        { x: 480, y: 200, vx: 0, vy: 2.5, range: 225, fov: 0.68 },
+        { x: 800, y: 460, vx: 2.3, vy: -1.4, range: 220, fov: 0.68 }
+      ]
+    },
+    {
+      id: 2,
+      name: 'West Catacomb Crypt',
+      bg: '#110912',
+      spawn: { x: 1120, y: 600 },
+      walls: [
+        { x: 260, y: 220, w: 300, h: 40 },
+        { x: 720, y: 220, w: 300, h: 40 },
+        { x: 490, y: 430, w: 300, h: 40 }
+      ],
+      shadows: [
+        { x: 640, y: 330, r: 56 },
+        { x: 180, y: 460, r: 52 },
+        { x: 1100, y: 340, r: 52 }
+      ],
+      doors: [
+        { x: 150, y: 610, label: 'Bone Vault Door', type: 'teleport', targets: [0, 1, 3] },
+        { x: 1120, y: 80, label: 'Whispering Corridor Door', type: 'teleport', targets: [0, 1, 3] },
+        { x: 150, y: 120, label: 'TRUE GATE II: Moonlit Iron Gate', type: 'truegate', targets: [4] }
+      ],
+      ghosts: [
+        { x: 350, y: 140, vx: 2.6, vy: 0.6, range: 225, fov: 0.68 },
+        { x: 920, y: 520, vx: -2.4, vy: -1.1, range: 225, fov: 0.68 }
+      ]
+    },
+    {
+      id: 3,
+      name: 'Sunken Bell Keep',
+      bg: '#090d16',
+      spawn: { x: 640, y: 360 },
+      walls: [
+        { x: 420, y: 200, w: 40, h: 320 },
+        { x: 820, y: 200, w: 40, h: 320 }
+      ],
+      shadows: [
+        { x: 640, y: 150, r: 54 },
+        { x: 220, y: 360, r: 54 },
+        { x: 1060, y: 360, r: 54 }
+      ],
+      doors: [
+        { x: 150, y: 110, label: 'East Belfry Door', type: 'teleport', targets: [1, 2] },
+        { x: 1130, y: 110, label: 'West Belfry Door', type: 'teleport', targets: [1, 2] },
+        { x: 640, y: 640, label: 'Tower Return Door', type: 'teleport', targets: [0, 1, 2] }
+      ],
+      ghosts: [
+        { x: 260, y: 200, vx: 1.8, vy: 2.3, range: 220, fov: 0.65 },
+        { x: 1020, y: 500, vx: -1.8, vy: -2.3, range: 220, fov: 0.65 }
+      ]
+    },
+    {
+      id: 4,
+      name: 'Fort Garden & Main Gate',
+      bg: '#06110b',
+      spawn: { x: 640, y: 635 },
+      walls: [
+        { x: 340, y: 280, w: 60, h: 190 },
+        { x: 880, y: 280, w: 60, h: 190 }
+      ],
+      shadows: [
+        { x: 400, y: 600, r: 55 },
+        { x: 880, y: 600, r: 55 },
+        { x: 640, y: 250, r: 55 }
+      ],
+      doors: [
+        { x: 640, y: 65, label: 'MAIN FORT GATE (Escape)', type: 'maingate' },
+        { x: 140, y: 640, label: 'Side Portal back to Fort', type: 'teleport', targets: [1, 2] }
+      ],
+      clueBoard: { x: 505, y: 110, label: 'Ancient Clue Board' },
+      ghosts: [
+        { x: 280, y: 350, vx: 2.3, vy: 1.5, range: 220, fov: 0.65 },
+        { x: 980, y: 280, vx: -2.3, vy: -1.5, range: 220, fov: 0.65 }
+      ]
+    }
+  ];
+
+  // Game State
+  let gameState = 'menu'; // 'menu' | 'playing' | 'jumpscare' | 'cinema' | 'victory'
+  let currentRoomIdx = 0;
+  let hasKey = false;
+  let clueReadThisVisit = false;
+  let secretSpotIdx = 0;
+  let matchNumber = 1;
+  let gardenVisitCount = 0;
+  let activeGhosts = [];
+  let flashMessage = '';
+  let flashTimer = 0;
+  let scareTimer = 0;
+  let cinemaTimer = 0;
+  let cinemaGhosts = [];
+
+  const player = {
+    x: 640,
+    y: 610,
+    r: 15,
+    angle: -Math.PI / 2,
+    stamina: 100,
+    crouching: false,
+    flashlight: true,
+    inShadow: false
+  };
+
+  // Input State (Keyboard + Touch + Gamepad)
+  const keys = {};
+  const touchInput = { vx: 0, vy: 0, sprint: false };
+  let activePromptAction = null;
+
+  window.addEventListener('keydown', (e) => {
+    const k = e.key.toLowerCase();
+    keys[k] = true;
+    if (k === 'c' && gameState === 'playing') {
+      player.crouching = !player.crouching;
+      updateTouchToggleUI();
+    }
+    if (k === 'f' && gameState === 'playing') {
+      player.flashlight = !player.flashlight;
+      updateTouchToggleUI();
+    }
+    if ((k === 'e' || k === ' ') && gameState === 'playing') {
+      e.preventDefault();
+      triggerInteraction();
+    }
+    if (k === 'escape' && clueModal.style.display === 'block') {
+      clueModal.style.display = 'none';
+    }
+  });
+
+  window.addEventListener('keyup', (e) => {
+    keys[e.key.toLowerCase()] = false;
+  });
+
+  // Mouse Aiming on Desktop
+  canvas.addEventListener('mousemove', (e) => {
+    if (touchEnabled || gameState !== 'playing') return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (W / rect.width);
+    const my = (e.clientY - rect.top) * (H / rect.height);
+    player.angle = Math.atan2(my - player.y, mx - player.x);
+  });
+
+  // Virtual Joystick Logic
+  const joyZone = document.getElementById('joystick-zone');
+  const joyKnob = document.getElementById('joystick-knob');
+  let joyTouchId = null;
+
+  function handleJoystickMove(clientX, clientY) {
+    const rect = joyZone.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const maxR = rect.width * 0.38;
+    let dx = clientX - cx;
+    let dy = clientY - cy;
+    const dist = Math.hypot(dx, dy);
+    if (dist > maxR) {
+      dx = (dx / dist) * maxR;
+      dy = (dy / dist) * maxR;
+    }
+    joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+    touchInput.vx = dx / maxR;
+    touchInput.vy = dy / maxR;
+  }
+
+  function resetJoystick() {
+    joyTouchId = null;
+    joyKnob.style.transform = 'translate(0px, 0px)';
+    touchInput.vx = 0;
+    touchInput.vy = 0;
+  }
+
+  joyZone.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    initAudio();
+    const t = e.changedTouches[0];
+    joyTouchId = t.identifier;
+    handleJoystickMove(t.clientX, t.clientY);
+  }, { passive: false });
+
+  joyZone.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      if (t.identifier === joyTouchId) {
+        handleJoystickMove(t.clientX, t.clientY);
+      }
+    }
+  }, { passive: false });
+
+  joyZone.addEventListener('touchend', (e) => {
+    for (const t of e.changedTouches) {
+      if (t.identifier === joyTouchId) resetJoystick();
+    }
+  });
+  joyZone.addEventListener('touchcancel', resetJoystick);
+
+  // Touch Action Buttons
+  const btnInteract = document.getElementById('t-interact');
+  const btnSprint = document.getElementById('t-sprint');
+  const btnCrouch = document.getElementById('t-crouch');
+  const btnLight = document.getElementById('t-light');
+
+  function updateTouchToggleUI() {
+    btnCrouch.classList.toggle('active-toggle', player.crouching);
+    btnLight.classList.toggle('active-toggle', player.flashlight);
+  }
+
+  btnInteract.addEventListener('touchstart', (e) => { e.preventDefault(); initAudio(); triggerInteraction(); });
+  btnInteract.addEventListener('click', () => { initAudio(); triggerInteraction(); });
+
+  btnSprint.addEventListener('touchstart', (e) => { e.preventDefault(); touchInput.sprint = true; btnSprint.classList.add('active-toggle'); });
+  btnSprint.addEventListener('touchend', (e) => { e.preventDefault(); touchInput.sprint = false; btnSprint.classList.remove('active-toggle'); });
+
+  btnCrouch.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    player.crouching = !player.crouching;
+    updateTouchToggleUI();
+  });
+
+  btnLight.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    player.flashlight = !player.flashlight;
+    updateTouchToggleUI();
+  });
+
+  promptBanner.addEventListener('click', () => {
+    initAudio();
+    triggerInteraction();
+  });
+
+  document.getElementById('btn-close-clue').addEventListener('click', () => {
+    clueModal.style.display = 'none';
+  });
+
+  btnStartGame.addEventListener('click', () => {
+    initAudio();
+    startOverlay.style.display = 'none';
+    startNewMatch(false);
+  });
+
+  // Randomize Key & Clue on Every New Match AND Every Garden Entry for Key Searching
+  function randomizeKeyAndClue() {
+    let nextIdx = Math.floor(Math.random() * GARDEN_SPOTS.length);
+    if (GARDEN_SPOTS.length > 1 && nextIdx === secretSpotIdx) {
+      nextIdx = (nextIdx + 1 + Math.floor(Math.random() * (GARDEN_SPOTS.length - 1))) % GARDEN_SPOTS.length;
+    }
+    secretSpotIdx = nextIdx;
+    clueReadThisVisit = false;
+  }
+
+  function showBannerMsg(msg, duration = 170) {
+    flashMessage = msg;
+    flashTimer = duration;
+  }
+
+  function loadRoom(roomIdx, customSpawn = null) {
+    currentRoomIdx = roomIdx;
+    const room = ROOMS[roomIdx];
+    player.x = customSpawn ? customSpawn.x : room.spawn.x;
+    player.y = customSpawn ? customSpawn.y : room.spawn.y;
+    clueModal.style.display = 'none';
+
+    // Whenever the player enters the Main Gate / Garden to search for the key, shift the key & clue!
+    if (roomIdx === 4 && !hasKey) {
+      gardenVisitCount++;
+      randomizeKeyAndClue();
+      showBannerMsg('You reached the Main Gate & Garden! Read the Clue Board to locate the key.', 220);
+    }
+
+    activeGhosts = room.ghosts.map(g => ({
+      x: g.x,
+      y: g.y,
+      vx: g.vx,
+      vy: g.vy,
+      range: g.range,
+      fov: g.fov,
+      angle: Math.atan2(g.vy, g.vx)
+    }));
+
+    updateHUD();
+  }
+
+  function startNewMatch(wasCaught = false) {
+    hasKey = false;
+    player.stamina = 100;
+    player.crouching = false;
+    player.flashlight = true;
+    updateTouchToggleUI();
+    randomizeKeyAndClue();
+    loadRoom(0);
+    gameState = 'playing';
+    if (wasCaught) {
+      matchNumber++;
+      showBannerMsg(`GHOST CAUGHT YOU! Match #${matchNumber}: Restarted at the Top of the Fort with a new Key Clue!`, 240);
+    } else {
+      showBannerMsg('Escape from the Top of the Fort! Avoid the red ghost vision cones.', 210);
+    }
+  }
+
+  function updateHUD() {
+    const room = ROOMS[currentRoomIdx];
+    hudRoom.textContent = room.name;
+    if (hasKey) {
+      hudKey.textContent = '🗝️ Skeleton Key: FOUND';
+      hudKey.className = 'hud-badge badge-key-yes';
+    } else {
+      hudKey.textContent = '🗝️ Key: Missing';
+      hudKey.className = 'hud-badge badge-key-no';
+    }
+    hudStealth.textContent = player.inShadow ? '🌑 Hidden in Shadow' : (player.crouching ? '🕵️ Crouching' : '🚶 Standing');
+    hudStamina.textContent = `Stamina: ${Math.round(player.stamina)}%`;
+  }
+
+  // Interaction Handler
+  function triggerInteraction() {
+    if (clueModal.style.display === 'block') {
+      clueModal.style.display = 'none';
+      return;
+    }
+    if (activePromptAction) activePromptAction();
+  }
+
+  // Raycast Line-of-Sight Check Against Walls
+  function lineIntersectsRect(x1, y1, x2, y2, rx, ry, rw, rh) {
+    const steps = 16;
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      const px = x1 + (x2 - x1) * t;
+      const py = y1 + (y2 - y1) * t;
+      if (px >= rx && px <= rx + rw && py >= ry && py <= ry + rh) return true;
+    }
+    return false;
+  }
+
+  function canGhostSeePlayer(g, room) {
+    if (player.inShadow) return false;
+    const dx = player.x - g.x;
+    const dy = player.y - g.y;
+    const dist = Math.hypot(dx, dy);
+
+    // Instant touch capture
+    if (dist < player.r + 18) return true;
+
+    let effectiveRange = g.range;
+    if (player.crouching) effectiveRange *= 0.72;
+    if (!player.flashlight) effectiveRange *= 0.85;
+    if (dist > effectiveRange) return false;
+
+    const angleToPlayer = Math.atan2(dy, dx);
+    let diff = angleToPlayer - g.angle;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+
+    if (Math.abs(diff) > g.fov) return false;
+
+    for (const w of room.walls) {
+      if (lineIntersectsRect(g.x, g.y, player.x, player.y, w.x, w.y, w.w, w.h)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Trigger Horror Film Finale
+  function startHorrorFilmEnding() {
+    gameState = 'cinema';
+    cinemaTimer = 0;
+    playSound('cinema');
+    promptBanner.style.display = 'none';
+    cinemaGhosts = [];
+    for (let i = 0; i < 14; i++) {
+      cinemaGhosts.push({
+        x: 640 + (Math.random() - 0.5) * 90,
+        y: 230 + Math.random() * 60,
+        vx: (Math.random() - 0.5) * 3.8,
+        vy: -1.2 - Math.random() * 2.2,
+        scale: 0.8 + Math.random() * 0.7,
+        phase: Math.random() * Math.PI * 2
+      });
+    }
+  }
+
+  // Poll Gamepad API for Portable Controller Support
+  let gpInteractLock = false;
+  function pollGamepad() {
+    if (!navigator.getGamepads) return { gx: 0, gy: 0, sprint: false };
+    const pads = navigator.getGamepads();
+    const gp = pads && pads[0];
+    if (!gp) return { gx: 0, gy: 0, sprint: false };
+    const gx = Math.abs(gp.axes[0]) > 0.18 ? gp.axes[0] : 0;
+    const gy = Math.abs(gp.axes[1]) > 0.18 ? gp.axes[1] : 0;
+    const sprint = gp.buttons[0]?.pressed || gp.buttons[7]?.pressed;
+    const interactPressed = gp.buttons[2]?.pressed || gp.buttons[1]?.pressed;
+    if (interactPressed && !gpInteractLock) {
+      gpInteractLock = true;
+      triggerInteraction();
+    } else if (!interactPressed) {
+      gpInteractLock = false;
+    }
+    return { gx, gy, sprint };
+  }
+
+  // Update Loop
+  function update() {
+    if (flashTimer > 0) flashTimer--;
+
+    if (gameState === 'jumpscare') {
+      scareTimer--;
+      if (scareTimer <= 0) {
+        startNewMatch(true);
+      }
+      return;
+    }
+
+    if (gameState === 'cinema') {
+      cinemaTimer++;
+      if (cinemaTimer > 430) {
+        gameState = 'victory';
+        startOverlay.style.display = 'flex';
+        overlayTitle.textContent = 'YOU ESCAPED BLACKTHORN FORT!';
+        overlaySub.textContent = 'As you fled beyond the Main Gate, the ancient ghosts broke free into the night...';
+        btnStartGame.textContent = 'PLAY A NEW RANDOMIZED MATCH';
+      }
+      return;
+    }
+
+    if (gameState !== 'playing') return;
+
+    const room = ROOMS[currentRoomIdx];
+    const gp = pollGamepad();
+
+    // Movement Vector
+    let mx = touchInput.vx + gp.gx;
+    let my = touchInput.vy + gp.gy;
+    if (keys['w'] || keys['arrowup']) my -= 1;
+    if (keys['s'] || keys['arrowdown']) my += 1;
+    if (keys['a'] || keys['arrowleft']) mx -= 1;
+    if (keys['d'] || keys['arrowright']) mx += 1;
+
+    const mag = Math.hypot(mx, my);
+    if (mag > 1) {
+      mx /= mag;
+      my /= mag;
+    }
+
+    const wantsSprint = (keys['shift'] || touchInput.sprint || gp.sprint) && mag > 0.1 && !player.crouching;
+    let speed = 3.2;
+    if (player.crouching) {
+      speed = 1.85;
+      player.stamina = Math.min(100, player.stamina + 0.35);
+    } else if (wantsSprint && player.stamina > 0) {
+      speed = 5.1;
+      player.stamina = Math.max(0, player.stamina - 0.55);
+    } else {
+      player.stamina = Math.min(100, player.stamina + 0.25);
+    }
+
+    const nx = player.x + mx * speed;
+    const ny = player.y + my * speed;
+
+    // Wall Collisions
+    let canX = nx > 55 && nx < W - 55;
+    let canY = ny > 55 && ny < H - 55;
+    for (const w of room.walls) {
+      if (nx + player.r > w.x && nx - player.r < w.x + w.w && player.y + player.r > w.y && player.y - player.r < w.y + w.h) {
+        canX = false;
+      }
+      if (player.x + player.r > w.x && player.x - player.r < w.x + w.w && ny + player.r > w.y && ny - player.r < w.y + w.h) {
+        canY = false;
+      }
+    }
+    if (canX) player.x = nx;
+    if (canY) player.y = ny;
+
+    if (mag > 0.15) {
+      player.angle = Math.atan2(my, mx);
+    }
+
+    // Shadow Check
+    player.inShadow = false;
+    for (const s of room.shadows) {
+      if (Math.hypot(player.x - s.x, player.y - s.y) < s.r) {
+        player.inShadow = true;
+        break;
+      }
+    }
+
+    // Update Ghosts
+    for (const g of activeGhosts) {
+      g.x += g.vx;
+      g.y += g.vy;
+      if (g.x < 90 || g.x > W - 90) g.vx *= -1;
+      if (g.y < 110 || g.y > H - 90) g.vy *= -1;
+      g.angle = Math.atan2(g.vy, g.vx);
+
+      if (canGhostSeePlayer(g, room)) {
+        playSound('jumpscare');
+        gameState = 'jumpscare';
+        scareTimer = 65;
+        promptBanner.style.display = 'none';
+        clueModal.style.display = 'none';
+        return;
+      }
+    }
+
+    // Check Proximity to Doors, Clue Board, and Garden Landmarks
+    activePromptAction = null;
+    let promptLabel = '';
+
+    // 1. Doors
+    for (const d of room.doors) {
+      if (Math.hypot(player.x - d.x, player.y - d.y) < 58) {
+        if (d.type === 'teleport') {
+          promptLabel = `🚪 [E / Tap] Open ${d.label} (Teleports inside Fort)`;
+          activePromptAction = () => {
+            playSound('teleport');
+            const nextRoom = d.targets[Math.floor(Math.random() * d.targets.length)];
+            loadRoom(nextRoom);
+            showBannerMsg(`Teleported to ${ROOMS[nextRoom].name}! Find one of the 2 True Gates.`, 170);
+          };
+        } else if (d.type === 'truegate') {
+          promptLabel = `⛩️ [E / Tap] Enter ${d.label} (Leads to Main Gate!)`;
+          activePromptAction = () => {
+            playSound('truegate');
+            loadRoom(4);
+          };
+        } else if (d.type === 'maingate') {
+          if (hasKey) {
+            promptLabel = `🔓 [E / Tap] UNLOCK MAIN FORT GATE & ESCAPE!`;
+            activePromptAction = () => {
+              startHorrorFilmEnding();
+            };
+          } else {
+            promptLabel = `🔒 Main Gate Locked! Read the Clue Board beside it & search the Fort Garden.`;
+            activePromptAction = () => {
+              playSound('clue');
+              showBannerMsg('Locked! Read the Ancient Clue Board right next to the Main Gate first!', 180);
+            };
+          }
+        }
+      }
+    }
+
+    // 2. Clue Board in Garden
+    if (room.clueBoard && Math.hypot(player.x - room.clueBoard.x, player.y - room.clueBoard.y) < 62) {
+      promptLabel = `📜 [E / Tap] Read Ancient Clue Board`;
+      activePromptAction = () => {
+        playSound('clue');
+        clueReadThisVisit = true;
+        clueTextEl.textContent = GARDEN_SPOTS[secretSpotIdx].clue;
+        clueModal.style.display = 'block';
+      };
+    }
+
+    // 3. Garden Landmarks (Room 4)
+    if (currentRoomIdx === 4) {
+      GARDEN_SPOTS.forEach((spot, idx) => {
+        if (Math.hypot(player.x - spot.x, player.y - spot.y) < 58) {
+          promptLabel = `🔍 [E / Tap] Search ${spot.name}`;
+          activePromptAction = () => {
+            if (hasKey) {
+              showBannerMsg('You already have the Skeleton Key! Hurry to the Main Gate at the top!', 160);
+            } else if (!clueReadThisVisit) {
+              playSound('clue');
+              showBannerMsg('Read the Clue Board beside the Main Gate first to reveal which landmark hides the key!', 190);
+            } else if (idx === secretSpotIdx) {
+              hasKey = true;
+              playSound('key');
+              updateHUD();
+              showBannerMsg(`🗝️ YOU FOUND THE SKELETON KEY in the ${spot.name}! Unlock the Main Gate now!`, 240);
+            } else {
+              playSound('clue');
+              showBannerMsg(`Nothing hidden at the ${spot.name}... Check the Clue Board riddle again!`, 170);
+            }
+          };
+        }
+      });
+    }
+
+    if (promptLabel) {
+      promptBanner.textContent = promptLabel;
+      promptBanner.style.display = 'block';
+    } else {
+      promptBanner.style.display = 'none';
+    }
+
+    updateHUD();
+  }
+
+  // Render Loop
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    if (gameState === 'cinema' || gameState === 'victory') {
+      drawHorrorFilmFinale();
+      return;
+    }
+
+    const room = ROOMS[currentRoomIdx];
+
+    // Floor Background
+    ctx.fillStyle = room.bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Stone Tile Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.035)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < W; x += 64) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let y = 0; y < H; y += 64) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+
+    // Outer Fort Walls
+    ctx.strokeStyle = '#2d2438';
+    ctx.lineWidth = 36;
+    ctx.strokeRect(18, 18, W - 36, H - 36);
+
+    // Shadow Hideouts
+    for (const s of room.shadows) {
+      const grad = ctx.createRadialGradient(s.x, s.y, 8, s.x, s.y, s.r);
+      grad.addColorStop(0, 'rgba(0, 0, 0, 0.92)');
+      grad.addColorStop(1, 'rgba(10, 18, 28, 0.15)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(90, 210, 230, 0.25)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(150, 220, 235, 0.45)';
+      ctx.font = '11px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText('Shadow Hideout', s.x, s.y + 4);
+    }
+
+    // Garden Landmarks (if in Fort Garden)
+    if (currentRoomIdx === 4) {
+      for (const spot of GARDEN_SPOTS) {
+        ctx.fillStyle = '#14291d';
+        ctx.beginPath();
+        ctx.arc(spot.x, spot.y, 34, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#5a8f69';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.fillStyle = '#d8ebd9';
+        ctx.font = 'bold 12px Georgia';
+        ctx.textAlign = 'center';
+        ctx.fillText(spot.name, spot.x, spot.y + 50);
+      }
+
+      // Clue Board
+      const cb = room.clueBoard;
+      ctx.fillStyle = '#4a3219';
+      ctx.fillRect(cb.x - 24, cb.y - 16, 48, 32);
+      ctx.strokeStyle = '#ffd269';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cb.x - 24, cb.y - 16, 48, 32);
+      ctx.fillStyle = '#ffe9b3';
+      ctx.font = 'bold 12px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText('📜 CLUE BOARD', cb.x, cb.y - 24);
+    }
+
+    // Interior Walls
+    for (const w of room.walls) {
+      ctx.fillStyle = '#241d2e';
+      ctx.fillRect(w.x, w.y, w.w, w.h);
+      ctx.strokeStyle = '#483a5c';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(w.x, w.y, w.w, w.h);
+    }
+
+    // Doors & True Gates
+    for (const d of room.doors) {
+      ctx.save();
+      ctx.translate(d.x, d.y);
+      if (d.type === 'truegate') {
+        ctx.fillStyle = '#521220';
+        ctx.strokeStyle = '#ff4d6d';
+      } else if (d.type === 'maingate') {
+        ctx.fillStyle = hasKey ? '#1f4f2b' : '#4a1212';
+        ctx.strokeStyle = '#ffd166';
+      } else {
+        ctx.fillStyle = '#3b2818';
+        ctx.strokeStyle = '#a67c52';
+      }
+      ctx.lineWidth = 3;
+      ctx.fillRect(-34, -18, 68, 36);
+      ctx.strokeRect(-34, -18, 68, 36);
+
+      ctx.fillStyle = '#f2e8d5';
+      ctx.font = 'bold 12px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText(d.label, 0, 34);
+      ctx.restore();
+    }
+
+    // Ghosts & Raycasted Vision Cones
+    for (const g of activeGhosts) {
+      let range = g.range;
+      if (player.crouching) range *= 0.72;
+      if (!player.flashlight) range *= 0.85;
+
+      // Vision Cone
+      const coneGrad = ctx.createRadialGradient(g.x, g.y, 10, g.x, g.y, range);
+      coneGrad.addColorStop(0, 'rgba(255, 35, 35, 0.42)');
+      coneGrad.addColorStop(1, 'rgba(255, 20, 20, 0.02)');
+      ctx.fillStyle = coneGrad;
+      ctx.beginPath();
+      ctx.moveTo(g.x, g.y);
+      ctx.arc(g.x, g.y, range, g.angle - g.fov, g.angle + g.fov);
+      ctx.closePath();
+      ctx.fill();
+
+      // Ghost Body
+      ctx.save();
+      ctx.translate(g.x, g.y);
+      ctx.fillStyle = 'rgba(230, 245, 255, 0.88)';
+      ctx.shadowColor = '#ff2a2a';
+      ctx.shadowBlur = 18;
+      ctx.beginPath();
+      ctx.arc(0, 0, 18, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Glowing Red Eyes
+      ctx.fillStyle = '#ff1111';
+      ctx.beginPath();
+      ctx.arc(Math.cos(g.angle - 0.3) * 8, Math.sin(g.angle - 0.3) * 8, 3.5, 0, Math.PI * 2);
+      ctx.arc(Math.cos(g.angle + 0.3) * 8, Math.sin(g.angle + 0.3) * 8, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Player Character
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    if (player.flashlight) {
+      const fGrad = ctx.createRadialGradient(0, 0, 8, 0, 0, 250);
+      fGrad.addColorStop(0, 'rgba(255, 244, 195, 0.36)');
+      fGrad.addColorStop(1, 'rgba(255, 244, 195, 0)');
+      ctx.fillStyle = fGrad;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, 250, player.angle - 0.48, player.angle + 0.48);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    ctx.fillStyle = player.inShadow ? '#3b6978' : '#e8d5b5';
+    ctx.strokeStyle = '#111';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, player.crouching ? 11 : 15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    // Darkness Vignette Overlay
+    const vGrad = ctx.createRadialGradient(player.x, player.y, 90, player.x, player.y, 560);
+    vGrad.addColorStop(0, 'rgba(0,0,0,0)');
+    vGrad.addColorStop(1, 'rgba(2,1,5,0.78)');
+    ctx.fillStyle = vGrad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Top-Center Story Notification Banner
+    if (flashTimer > 0 && flashMessage) {
+      ctx.fillStyle = 'rgba(14, 8, 18, 0.9)';
+      ctx.strokeStyle = '#d9b25f';
+      ctx.lineWidth = 1.5;
+      ctx.fillRect(W / 2 - 350, 62, 700, 38);
+      ctx.strokeRect(W / 2 - 350, 62, 700, 38);
+      ctx.fillStyle = '#ffe9b5';
+      ctx.font = 'bold 14px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText(flashMessage, W / 2, 86);
+    }
+
+    // Jumpscare Flash
+    if (gameState === 'jumpscare') {
+      ctx.fillStyle = 'rgba(150, 0, 0, 0.85)';
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(W / 2, H / 2 - 20, 130, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#b80000';
+      ctx.beginPath();
+      ctx.arc(W / 2 - 45, H / 2 - 40, 26, 0, Math.PI * 2);
+      ctx.arc(W / 2 + 45, H / 2 - 40, 26, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.ellipse(W / 2, H / 2 + 45, 55, 38, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffdede';
+      ctx.font = 'bold 34px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText('SPOTTED BY THE GHOST! RESTARTING AT TOP OF FORT...', W / 2, H - 70);
+    }
+  }
+
+  // Unique Widescreen Horror Film Finale Animation
+  function drawHorrorFilmFinale() {
+    // Night Sky & Crimson Blood Moon
+    const sky = ctx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#160409');
+    sky.addColorStop(1, '#050308');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+
+    // Rising Crimson Moon
+    ctx.fillStyle = '#b81d2a';
+    ctx.shadowColor = '#ff1e27';
+    ctx.shadowBlur = 45;
+    ctx.beginPath();
+    ctx.arc(W / 2, 175, 72, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Silhouette of Blackthorn Fort & Open Main Gate
+    ctx.fillStyle = '#0b0811';
+    ctx.fillRect(360, 150, 560, 240);
+    ctx.fillRect(330, 100, 95, 290);
+    ctx.fillRect(855, 100, 95, 290);
+
+    // Glowing Open Main Gate Archway
+    ctx.fillStyle = '#ff3b1f';
+    ctx.beginPath();
+    ctx.arc(W / 2, 310, 62, Math.PI, 0, false);
+    ctx.lineTo(W / 2 + 62, 390);
+    ctx.lineTo(W / 2 - 62, 390);
+    ctx.closePath();
+    ctx.fill();
+
+    // Ghosts Pouring Out of the Fort Into the Night Sky
+    for (const cg of cinemaGhosts) {
+      cg.x += cg.vx + Math.sin(cinemaTimer * 0.05 + cg.phase) * 1.4;
+      cg.y += cg.vy;
+      if (cg.y < 70) {
+        cg.y = 350;
+        cg.x = W / 2 + (Math.random() - 0.5) * 80;
+      }
+      ctx.save();
+      ctx.translate(cg.x, cg.y);
+      ctx.scale(cg.scale, cg.scale);
+      ctx.fillStyle = 'rgba(215, 245, 255, 0.78)';
+      ctx.shadowColor = '#ff2e2e';
+      ctx.shadowBlur = 16;
+      ctx.beginPath();
+      ctx.arc(0, 0, 18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ff1111';
+      ctx.beginPath();
+      ctx.arc(-6, -3, 3, 0, Math.PI * 2);
+      ctx.arc(6, -3, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Player Running Away from the Fort Down the Forest Path
+    const runY = Math.min(610, 395 + cinemaTimer * 0.65);
+    ctx.fillStyle = '#f0dec2';
+    ctx.beginPath();
+    ctx.arc(W / 2, runY, 16, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 35mm Horror Film Grain & Letterbox Bars
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, 84);
+    ctx.fillRect(0, H - 84, W, 84);
+
+    for (let i = 0; i < 45; i++) {
+      ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.08})`;
+      ctx.fillRect(Math.random() * W, Math.random() * H, 2, 2);
+    }
+
+    ctx.fillStyle = '#f5d78e';
+    ctx.font = 'italic bold 22px Georgia';
+    ctx.textAlign = 'center';
+    ctx.fillText('THE SEAL IS BROKEN — YOU ESCAPED, AND THE SPIRITS OF BLACKTHORN FORT STREAM INTO THE NIGHT...', W / 2, H - 36);
+  }
+
+  function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
