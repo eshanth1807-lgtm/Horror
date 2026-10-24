@@ -1,0 +1,2610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>DEVIL FORT: Spectral Escape</title>
+  <!-- PeerJS for cross-device WebRTC Multiplayer via Room Code -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <style>
+    :root {
+      --bg-dark: #050509;
+      --panel-bg: rgba(14, 12, 20, 0.92);
+      --border-glow: #8a1c33;
+      --crimson: #ff3355;
+      --gold: #f5c242;
+      --cyan: #00e5ff;
+      --emerald: #00ff88;
+      --text-main: #ece6f2;
+      --text-dim: #9a8fa6;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-dark);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--text-main);
+    }
+
+    #gameCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 1;
+    }
+
+    /* UI OVERLAYS */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at center, rgba(18, 8, 16, 0.84) 0%, rgba(3, 2, 6, 0.97) 100%);
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .title-banner {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .title-banner h1 {
+      font-size: clamp(2.2rem, 5vw, 4rem);
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      color: #fff;
+      text-shadow: 0 0 18px #ff1e42, 0 0 40px #800016, 0 4px 10px #000;
+      font-weight: 900;
+    }
+
+    .title-banner p {
+      color: var(--text-dim);
+      font-size: 0.98rem;
+      letter-spacing: 2px;
+      margin-top: 6px;
+      text-transform: uppercase;
+    }
+
+    .menu-card {
+      background: var(--panel-bg);
+      border: 1px solid rgba(255, 51, 85, 0.35);
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.9), inset 0 0 25px rgba(138, 28, 51, 0.15);
+      border-radius: 14px;
+      padding: 28px;
+      width: 100%;
+      max-width: 680px;
+      backdrop-filter: blur(10px);
+    }
+
+    .menu-card h2 {
+      font-size: 1.35rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+      color: var(--gold);
+      text-align: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 10px;
+    }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 600px) {
+      .mode-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .mode-btn {
+      background: linear-gradient(145deg, rgba(35, 22, 42, 0.95), rgba(16, 11, 22, 0.95));
+      border: 1px solid rgba(255, 68, 102, 0.4);
+      border-radius: 10px;
+      padding: 20px 14px;
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.22s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 8px;
+    }
+
+    .mode-btn:hover {
+      transform: translateY(-3px);
+      border-color: var(--crimson);
+      box-shadow: 0 0 22px rgba(255, 51, 85, 0.4);
+      background: linear-gradient(145deg, rgba(58, 22, 40, 0.95), rgba(26, 12, 24, 0.95));
+    }
+
+    .mode-btn .mode-icon {
+      font-size: 2rem;
+    }
+
+    .mode-btn .mode-title {
+      font-weight: 800;
+      font-size: 1.08rem;
+      letter-spacing: 1px;
+      color: #fff;
+    }
+
+    .mode-btn .mode-desc {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      line-height: 1.35;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      background: rgba(40, 28, 48, 0.9);
+      color: #fff;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: 0.2s;
+      text-transform: uppercase;
+      font-size: 0.9rem;
+    }
+
+    .btn:hover {
+      border-color: #fff;
+      background: rgba(70, 40, 68, 0.95);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #b81432, #7a091e);
+      border-color: #ff4d6d;
+      box-shadow: 0 0 15px rgba(255, 51, 85, 0.35);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #d91b3e, #960c26);
+      box-shadow: 0 0 24px rgba(255, 51, 85, 0.65);
+    }
+
+    .btn-gold {
+      background: linear-gradient(135deg, #b8860b, #705004);
+      border-color: var(--gold);
+      color: #fff;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 14px 0;
+    }
+
+    .input-group label {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .input-group input {
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      background: rgba(8, 6, 12, 0.9);
+      color: #fff;
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-align: center;
+      text-transform: uppercase;
+      outline: none;
+    }
+
+    .input-group input:focus {
+      border-color: var(--crimson);
+      box-shadow: 0 0 12px rgba(255, 51, 85, 0.4);
+    }
+
+    .room-code-box {
+      background: rgba(0, 0, 0, 0.65);
+      border: 2px dashed var(--gold);
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+      margin: 14px 0;
+    }
+
+    .room-code-box .code-label {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+
+    .room-code-box .code-value {
+      font-size: 2.2rem;
+      font-weight: 900;
+      letter-spacing: 8px;
+      color: var(--gold);
+      margin-top: 4px;
+      text-shadow: 0 0 12px rgba(245, 194, 66, 0.5);
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    .player-slots {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .slot-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .slot-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .slot-info {
+      display: flex;
+      flex-direction: column;
+      font-size: 0.85rem;
+    }
+
+    .slot-name {
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .slot-status {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+
+    .rules-list {
+      font-size: 0.83rem;
+      color: #ccc2d6;
+      line-height: 1.55;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 14px 18px;
+      border-radius: 8px;
+      border-left: 3px solid var(--crimson);
+      margin-top: 12px;
+    }
+
+    .rules-list li {
+      margin-bottom: 5px;
+      list-style-position: inside;
+    }
+
+    /* IN-GAME HUD */
+    #hud {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 14px;
+    }
+
+    .hud-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .hud-panel {
+      background: rgba(10, 8, 16, 0.82);
+      border: 1px solid rgba(255, 68, 102, 0.35);
+      border-radius: 10px;
+      padding: 10px 14px;
+      backdrop-filter: blur(6px);
+      pointer-events: auto;
+    }
+
+    .room-banner {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .room-name {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--gold);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .room-sub {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+    }
+
+    .objective-box {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-width: 380px;
+    }
+
+    .obj-item {
+      font-size: 0.82rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .obj-done {
+      color: var(--emerald);
+      text-decoration: line-through;
+    }
+
+    .obj-active {
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .team-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 200px;
+    }
+
+    .team-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 0.78rem;
+    }
+
+    .team-player-tag {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 700;
+    }
+
+    .team-room-tag {
+      color: var(--text-dim);
+      font-size: 0.72rem;
+    }
+
+    .hud-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 12px;
+    }
+
+    /* CLUE MODAL & ALERTS */
+    #clueModal {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 15;
+      background: radial-gradient(circle, #241710 0%, #120b07 100%);
+      border: 2px solid #d49b35;
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.95), 0 0 25px rgba(212, 155, 53, 0.35);
+      border-radius: 12px;
+      padding: 26px;
+      max-width: 500px;
+      width: 92%;
+      text-align: center;
+      pointer-events: auto;
+    }
+
+    #clueModal h3 {
+      color: var(--gold);
+      font-size: 1.4rem;
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+    }
+
+    #clueModal .riddle-text {
+      font-style: italic;
+      font-size: 1.05rem;
+      color: #f7e6c4;
+      line-height: 1.6;
+      background: rgba(0, 0, 0, 0.45);
+      padding: 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(212, 155, 53, 0.3);
+      margin-bottom: 14px;
+    }
+
+    #clueModal .clue-meta {
+      font-size: 0.83rem;
+      color: #b8a686;
+      margin-bottom: 16px;
+      line-height: 1.45;
+    }
+
+    #toastBanner {
+      position: absolute;
+      top: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 14;
+      background: rgba(18, 10, 22, 0.92);
+      border: 1px solid var(--gold);
+      padding: 10px 22px;
+      border-radius: 30px;
+      font-weight: 700;
+      font-size: 0.92rem;
+      color: #fff;
+      box-shadow: 0 6px 25px rgba(0, 0, 0, 0.8);
+      pointer-events: none;
+      transition: opacity 0.3s;
+      text-align: center;
+    }
+
+    #caughtBanner {
+      position: absolute;
+      inset: 0;
+      z-index: 18;
+      background: radial-gradient(circle, rgba(160, 0, 25, 0.55) 0%, rgba(10, 0, 2, 0.92) 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      pointer-events: none;
+    }
+
+    #caughtBanner h2 {
+      font-size: clamp(2rem, 5vw, 3.6rem);
+      color: #ff2a4b;
+      text-shadow: 0 0 25px #ff002b, 0 4px 12px #000;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    #caughtBanner p {
+      font-size: 1.15rem;
+      color: #fff;
+      max-width: 540px;
+    }
+
+    /* INTERACT PROMPT */
+    #interactPrompt {
+      position: absolute;
+      bottom: 110px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 8;
+      background: rgba(12, 10, 18, 0.92);
+      border: 1.5px solid var(--gold);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 24px;
+      font-weight: 700;
+      font-size: 0.92rem;
+      pointer-events: auto;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(245, 194, 66, 0.35);
+    }
+
+    /* MOBILE TOUCH CONTROLS */
+    #touchControls {
+      display: none;
+      position: absolute;
+      bottom: 18px;
+      left: 18px;
+      right: 18px;
+      z-index: 9;
+      justify-content: space-between;
+      align-items: flex-end;
+      pointer-events: none;
+    }
+
+    @media (pointer: coarse), (max-width: 820px) {
+      #touchControls {
+        display: flex;
+      }
+    }
+
+    .joystick-zone {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.07);
+      border: 2px solid rgba(255, 255, 255, 0.22);
+      position: relative;
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    .joystick-knob {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(255, 51, 85, 0.75);
+      border: 2px solid #fff;
+      position: absolute;
+      top: 36px;
+      left: 36px;
+      pointer-events: none;
+    }
+
+    .touch-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: auto;
+    }
+
+    .touch-btn {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: rgba(25, 18, 34, 0.88);
+      border: 2px solid var(--gold);
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.78rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      touch-action: manipulation;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- MAIN CANVAS -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- 1. MAIN MENU OVERLAY -->
+  <div id="mainMenuOverlay" class="overlay">
+    <div class="title-banner">
+      <h1>DEVIL FORT</h1>
+      <p>The Dark Garden Key &bull; Spectral Multiplayer Escape</p>
+    </div>
+
+    <!-- Step 1: Select Player Count -->
+    <div id="menuStepMode" class="menu-card">
+      <h2>Select Game Mode</h2>
+      <div class="mode-grid">
+        <button class="mode-btn" onclick="selectMode(1)">
+          <span class="mode-icon">🕯️</span>
+          <span class="mode-title">Single Player</span>
+          <span class="mode-desc">Brave the massive Devil Fort alone in pitch darkness.</span>
+        </button>
+        <button class="mode-btn" onclick="selectMode(2)">
+          <span class="mode-icon">👥</span>
+          <span class="mode-title">Double Player</span>
+          <span class="mode-desc">2 Players on their own devices. Host or Join via Room Code.</span>
+        </button>
+        <button class="mode-btn" onclick="selectMode(4)">
+          <span class="mode-icon">🛡️</span>
+          <span class="mode-title">Four Player</span>
+          <span class="mode-desc">4 Players Co-op Team Escape on separate devices.</span>
+        </button>
+      </div>
+
+      <ul class="rules-list">
+        <li><strong>Massive Fort &amp; Many Gates:</strong> Explore 8 gigantic dark rooms filled with 49 teleportation gates.</li>
+        <li><strong>Only 2 Gates to Main Gate:</strong> Only <strong>2 specific gates</strong> (in the <em>Ritual Sanctum</em> &amp; <em>Dark Garden</em>) teleport into the <strong>Main Gate Courtyard</strong>.</li>
+        <li><strong>Clue Board &amp; Garden Key:</strong> Read the <strong>Clue Board</strong> to discover where the <strong>Main Gate Key</strong> is hidden in the vast Dark Garden.</li>
+        <li><strong>3 Ghosts Per Room &amp; Shared Fate:</strong> Each room is haunted by 3 Ghosts. If <strong>any player is spotted</strong>, every player restarts from the beginning!</li>
+        <li><strong>Shared Victory &amp; Ghost Exodus:</strong> Once the Key is found, if <strong>any player exits the Main Gate</strong>, all ghosts stream out of the fort in a realistic ending sequence!</li>
+      </ul>
+    </div>
+
+    <!-- Step 2: Multiplayer Host or Join Selection -->
+    <div id="menuStepMultiChoice" class="menu-card hidden">
+      <h2 id="multiChoiceTitle">Multiplayer Setup</h2>
+      <div class="input-group">
+        <label for="playerNameInput">Your Hunter Name</label>
+        <input id="playerNameInput" type="text" maxlength="12" value="HUNTER" />
+      </div>
+      <div class="mode-grid" style="grid-template-columns: 1fr 1fr;">
+        <button class="mode-btn" onclick="openHostLobby()">
+          <span class="mode-icon">🏰</span>
+          <span class="mode-title">Host Game</span>
+          <span class="mode-desc">Create a Fort Room-Code for your team to connect.</span>
+        </button>
+        <button class="mode-btn" onclick="openJoinScreen()">
+          <span class="mode-icon">🔑</span>
+          <span class="mode-title">Join Game</span>
+          <span class="mode-desc">Enter a Host's Room-Code on your device to join.</span>
+        </button>
+      </div>
+      <div class="btn-row">
+        <button class="btn" onclick="backToMainMenu()">← Back</button>
+      </div>
+    </div>
+
+    <!-- Step 3A: Host Game Lobby -->
+    <div id="menuStepHost" class="menu-card hidden">
+      <h2>Host Game Lobby</h2>
+      <div class="room-code-box">
+        <div class="code-label">Share This Room-Code With Your Team</div>
+        <div id="hostRoomCodeDisplay" class="code-value">------</div>
+      </div>
+      <p id="hostNetStatus" style="text-align:center; font-size:0.82rem; color:var(--emerald); margin-bottom:8px;">
+        Initializing Room Code across WebRTC &amp; Local Network...
+      </p>
+      <div id="hostSlotsContainer" class="player-slots"></div>
+      <div class="btn-row">
+        <button class="btn" onclick="backToMainMenu()">Cancel</button>
+        <button class="btn btn-gold" onclick="hostStartWithBots()">Fill Empty Slots (AI) &amp; Start</button>
+        <button id="hostStartBtn" class="btn btn-primary" onclick="hostStartGame()">Start Escape Now</button>
+      </div>
+    </div>
+
+    <!-- Step 3B: Join Game Screen -->
+    <div id="menuStepJoin" class="menu-card hidden">
+      <h2>Join Team via Room-Code</h2>
+      <div class="input-group">
+        <label for="joinCodeInput">Enter 6-Character Room-Code</label>
+        <input id="joinCodeInput" type="text" maxlength="6" placeholder="E.G. 748291" />
+      </div>
+      <p id="joinNetStatus" style="text-align:center; font-size:0.85rem; color:var(--text-dim); min-height:20px;"></p>
+      <div id="joinSlotsContainer" class="player-slots hidden"></div>
+      <div class="btn-row">
+        <button class="btn" onclick="backToMainMenu()">← Back</button>
+        <button id="joinConnectBtn" class="btn btn-primary" onclick="connectToHostRoom()">Connect to Room</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. IN-GAME HUD -->
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="hud-panel room-banner">
+        <div id="hudRoomName" class="room-name">Entrance Dungeon</div>
+        <div id="hudRoomSub" class="room-sub">3 Ghosts Active &bull; 6 Gates in Room</div>
+        <div id="hudAttemptCount" style="font-size:0.75rem; color:#ff758f; margin-top:2px;">Team Attempt #1</div>
+      </div>
+
+      <div class="hud-panel objective-box">
+        <div style="font-size:0.74rem; text-transform:uppercase; letter-spacing:1px; color:var(--gold);">Escape Objectives</div>
+        <div id="obj1" class="obj-item obj-active">📜 1. Read Clue Board (in Entrance or Dark Garden)</div>
+        <div id="obj2" class="obj-item">🗝️ 2. Find Main Gate Key in The Dark Garden</div>
+        <div id="obj3" class="obj-item">🚪 3. Enter 1 of the 2 Special Gates to Main Gate Courtyard &amp; Escape!</div>
+      </div>
+
+      <div class="hud-panel team-panel">
+        <div style="font-size:0.74rem; text-transform:uppercase; letter-spacing:1px; color:var(--gold);">Team Status (Unique Colors)</div>
+        <div id="hudTeamList"></div>
+      </div>
+    </div>
+
+    <div class="hud-bottom">
+      <div class="hud-panel" style="font-size:0.78rem; color:var(--text-dim); max-width:440px;">
+        <div><strong style="color:#fff;">Controls:</strong> <kbd>WASD</kbd>/<kbd>Arrows</kbd> Move &bull; <kbd>Mouse</kbd> Aim Flashlight &bull; <kbd>E</kbd>/<kbd>Space</kbd> Enter Gate / Read Clue &bull; <kbd>Shift</kbd> Sprint</div>
+        <div id="hudClueReminder" style="color:var(--gold); margin-top:4px;">Clue Status: Unread — Find a Clue Board!</div>
+      </div>
+
+      <div class="hud-panel" style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+        <div style="font-size:0.75rem; color:var(--text-dim);">STAMINA &amp; LANTERN CHARGE</div>
+        <div style="width:150px; height:10px; background:#1a1424; border-radius:6px; overflow:hidden; border:1px solid rgba(255,255,255,0.2);">
+          <div id="staminaBar" style="width:100%; height:100%; background:linear-gradient(90deg, #00e5ff, #00ff88);"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INTERACT BUTTON / PROMPT -->
+  <div id="interactPrompt" class="hidden" onclick="triggerInteract()">Press [E] to Interact</div>
+
+  <!-- CLUE BOARD MODAL -->
+  <div id="clueModal" class="hidden">
+    <h3>📜 Ancient Garden Clue Board</h3>
+    <div id="clueRiddleText" class="riddle-text"></div>
+    <div id="clueMetaText" class="clue-meta"></div>
+    <button class="btn btn-gold" onclick="closeClueModal()">Got It — Continue Escape</button>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toastBanner" class="hidden"></div>
+
+  <!-- CAUGHT BY GHOST FULLSCREEN ALERT -->
+  <div id="caughtBanner" class="hidden">
+    <h2>👁️ SPOTTED BY A GHOST!</h2>
+    <p id="caughtDetailText">A teammate was seen in the dark! The Devil Fort curse pulls ALL players back to the beginning!</p>
+  </div>
+
+  <!-- VICTORY SUMMARY OVERLAY (Shown after Realistic Ghost Exodus Animation) -->
+  <div id="victoryOverlay" class="overlay hidden">
+    <div class="menu-card" style="text-align:center;">
+      <h2 style="font-size:1.9rem; color:var(--emerald);">🌅 THE DEVIL FORT IS BROKEN!</h2>
+      <p style="color:#d8cfe6; margin-bottom:18px; line-height:1.6;">
+        Every ghost trapped within the Devil Fort has poured out through the gates and dissolved into the night sky. Your team survived the darkness!
+      </p>
+      <div id="victoryStats" style="background:rgba(0,0,0,0.5); padding:16px; border-radius:10px; margin-bottom:20px; text-align:left; font-size:0.95rem; line-height:1.8;"></div>
+      <div class="btn-row">
+        <button class="btn btn-gold" onclick="replayEndingCinematic()">🎬 Replay Realistic Ghost Exit Animation</button>
+        <button class="btn btn-primary" onclick="location.reload()">Return to Main Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MOBILE TOUCH CONTROLS -->
+  <div id="touchControls">
+    <div id="joyMoveZone" class="joystick-zone">
+      <div id="joyMoveKnob" class="joystick-knob"></div>
+    </div>
+    <div class="touch-actions">
+      <button class="touch-btn" onclick="triggerInteract()">USE /<br>GATE</button>
+      <button id="touchSprintBtn" class="touch-btn" style="border-color:var(--cyan);">SPRINT</button>
+    </div>
+  </div>
+
+  <script>
+    /*************************************************************************
+     * 1. AUDIO SYNTHESIZER (Atmospheric Horror & Cinematic Sound Effects)
+     *************************************************************************/
+    const SoundFX = {
+      ctx: null,
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      },
+      playGateTeleport() {
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(190, now);
+        osc.frequency.exponentialRampToValueAtTime(520, now + 0.35);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.4);
+      },
+      playKeyPickup() {
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+          gain.gain.setValueAtTime(0.18, now + idx * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.45);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + idx * 0.08);
+          osc.stop(now + idx * 0.08 + 0.45);
+        });
+      },
+      playGhostScream() {
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc1 = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc1.type = 'sawtooth';
+        osc2.type = 'square';
+        osc1.frequency.setValueAtTime(640, now);
+        osc1.frequency.exponentialRampToValueAtTime(140, now + 0.85);
+        osc2.frequency.setValueAtTime(675, now);
+        osc2.frequency.exponentialRampToValueAtTime(110, now + 0.85);
+        gain.gain.setValueAtTime(0.24, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + 0.9);
+        osc2.stop(now + 0.9);
+      },
+      playExodusChord() {
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        [110, 164.81, 220, 277.18, 329.63].forEach((freq) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, now);
+          osc.frequency.linearRampToValueAtTime(freq * 1.04, now + 3.5);
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.linearRampToValueAtTime(0.06, now + 0.6);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 4.5);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 4.5);
+        });
+      }
+    };
+
+    /*************************************************************************
+     * 2. UNIQUE PLAYER COLORS & CONSTANTS
+     *************************************************************************/
+    const PLAYER_COLORS = [
+      { name: 'Crimson Red', hex: '#ff3355', glow: 'rgba(255, 51, 85, 0.45)', light: 'rgba(255, 190, 185, 0.22)' },
+      { name: 'Soul Cyan',   hex: '#00e5ff', glow: 'rgba(0, 229, 255, 0.45)', light: 'rgba(180, 245, 255, 0.22)' },
+      { name: 'Emerald',     hex: '#00ff88', glow: 'rgba(0, 255, 136, 0.45)', light: 'rgba(185, 255, 215, 0.22)' },
+      { name: 'Royal Gold',  hex: '#ffbe0b', glow: 'rgba(255, 190, 11, 0.45)', light: 'rgba(255, 235, 175, 0.22)' }
+    ];
+
+    const GARDEN_LANDMARKS = [
+      {
+        id: 0,
+        name: 'The Weeping Gargoyle (Northwest Briar)',
+        x: 520,
+        y: 480,
+        riddle: '"Where stone wings weep beneath the Northwest thorns, the iron key sleeps in cold shadow."'
+      },
+      {
+        id: 1,
+        name: 'The Sunken Blood Fountain (Northeast Grove)',
+        x: 3250,
+        y: 520,
+        riddle: '"Seek the Northeast basin where crimson waters dried; upon its cracked rim the Devil’s Key hides."'
+      },
+      {
+        id: 2,
+        name: 'The Hollow Dead Oak (Central Blight)',
+        x: 1920,
+        y: 1450,
+        riddle: '"At the rotting heart of the Garden stands a lightning-split Oak; reach inside its hollow roots."'
+      },
+      {
+        id: 3,
+        name: 'The Shattered Greenhouse (Southwest Mist)',
+        x: 580,
+        y: 2280,
+        riddle: '"Among broken glass and withered nightshade in the Southwest corner glimmers the lock’s salvation."'
+      },
+      {
+        id: 4,
+        name: 'The Ivy Mausoleum (Southeast Crypt)',
+        x: 3260,
+        y: 2280,
+        riddle: '"By the Southeast tomb choked in black ivy vines, the Key awaits a brave hunter’s hand."'
+      }
+    ];
+
+    /*************************************************************************
+     * 3. MASSIVE DEVIL FORT WORLD DEFINITION (8 Large Dark Rooms, 49 Gates, 24 Ghosts)
+     *    - Every room is huge (3200x2400, Dark Garden is 3800x2800).
+     *    - Each room has 6 to 7 gates.
+     *    - ONLY TWO GATES in the entire fort lead to Room 7 (Main Gate Courtyard):
+     *      1) Gate #5 in Room 5 (Ritual Sanctum)
+     *      2) Gate #6 in Room 6 (The Dark Garden)
+     *************************************************************************/
+    let worldSeed = 1337;
+    let keyLandmarkIndex = 0;
+    let rooms = [];
+
+    function seededRandom() {
+      worldSeed = (worldSeed * 1664525 + 1013904223) % 4294967296;
+      return worldSeed / 4294967296;
+    }
+
+    function buildFortWorld(seedValue) {
+      worldSeed = seedValue || 1337;
+      keyLandmarkIndex = Math.floor(seededRandom() * GARDEN_LANDMARKS.length);
+
+      const roomConfigs = [
+        { id: 0, name: 'Entrance Dungeon',      sub: 'The Forsaken Foyer',       w: 3200, h: 2400, floor: '#0a0910', wall: '#231e30', accent: '#6c2238', gatesCount: 6 },
+        { id: 1, name: 'Blood Hall',            sub: 'Hall of Crimson Pillars',  w: 3200, h: 2400, floor: '#11070b', wall: '#381420', accent: '#9e1932', gatesCount: 6 },
+        { id: 2, name: 'Crypt of Shadows',      sub: 'Catacombs of the Damned',  w: 3200, h: 2400, floor: '#080b10', wall: '#1a2430', accent: '#2f5c78', gatesCount: 6 },
+        { id: 3, name: 'Cursed Library',        sub: 'Archive of Lost Souls',    w: 3200, h: 2400, floor: '#0e0a07', wall: '#2e2116', accent: '#8c5a2b', gatesCount: 6 },
+        { id: 4, name: 'Torture Chamber',       sub: 'The Iron Pit',             w: 3200, h: 2400, floor: '#090909', wall: '#242429', accent: '#6e6e7a', gatesCount: 6 },
+        { id: 5, name: 'Ritual Sanctum',        sub: 'Altar of the Devil',       w: 3200, h: 2400, floor: '#0f0612', wall: '#2d1238', accent: '#9d2ec4', gatesCount: 6 },
+        { id: 6, name: 'The Dark Garden',       sub: 'Massive Blighted Labyrinth', w: 3800, h: 2800, floor: '#050c07', wall: '#12291a', accent: '#1f6637', gatesCount: 7 },
+        { id: 7, name: 'Main Gate Courtyard',   sub: 'The Devil’s Bastion',      w: 3200, h: 2400, floor: '#0b0912', wall: '#292238', accent: '#d49b35', gatesCount: 6 }
+      ];
+
+      // Target rooms for normal gates (Rooms 0..6, never Room 7 except for the 2 special gates!)
+      const normalTargets = [0, 1, 2, 3, 4, 5, 6];
+
+      rooms = roomConfigs.map((cfg) => {
+        const obstacles = [];
+
+        // Generate interior walls/obstacles so each large room feels like a huge dark fortress wing
+        if (cfg.id === 6) {
+          // Dark Garden labyrinthine hedges & stone walls
+          const hedgeRects = [
+            { x: 900, y: 300, w: 140, h: 720 },
+            { x: 1500, y: 780, w: 820, h: 130 },
+            { x: 2650, y: 300, w: 140, h: 760 },
+            { x: 850, y: 1550, w: 680, h: 140 },
+            { x: 2280, y: 1550, w: 680, h: 140 },
+            { x: 1840, y: 1850, w: 140, h: 650 }
+          ];
+          hedgeRects.forEach(r => obstacles.push({ ...r, type: 'hedge' }));
+        } else {
+          // Fortress stone walls & crypt pillars
+          const cols = 4;
+          const rows = 3;
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              const px = 560 + c * 660 + (seededRandom() * 80 - 40);
+              const py = 500 + r * 620 + (seededRandom() * 80 - 40);
+              // Keep center spawn clear
+              if (Math.hypot(px - cfg.w / 2, py - cfg.h / 2) < 340) continue;
+              obstacles.push({
+                x: px - 85,
+                y: py - 85,
+                w: 170,
+                h: 170,
+                type: 'pillar'
+              });
+            }
+          }
+        }
+
+        // Place 6 to 7 Teleport Gates around the perimeter & inner alcoves of each huge room
+        const gatePositions = [
+          { x: 260,          y: 320,          label: 'NW Gate' },
+          { x: cfg.w / 2,    y: 220,          label: 'North Gate' },
+          { x: cfg.w - 260,  y: 320,          label: 'NE Gate' },
+          { x: 260,          y: cfg.h - 300,  label: 'SW Gate' },
+          { x: cfg.w / 2,    y: cfg.h - 220,  label: 'South Gate' },
+          { x: cfg.w - 260,  y: cfg.h - 300,  label: 'SE Gate' },
+          { x: cfg.w - 260,  y: cfg.h / 2,    label: 'East Arcane Gate' }
+        ];
+
+        // If Room 7 (Main Gate Courtyard), North center is reserved for THE MAIN EXIT GATE, so shift North Gate
+        if (cfg.id === 7) {
+          gatePositions[1] = { x: 260, y: cfg.h / 2, label: 'West Return Gate' };
+        }
+
+        const gates = [];
+        for (let g = 0; g < cfg.gatesCount; g++) {
+          const pos = gatePositions[g];
+          // Pick a deterministic target room from 0..6 (not self)
+          let targetRoom = normalTargets[(cfg.id * 3 + g * 2 + 1) % normalTargets.length];
+          if (targetRoom === cfg.id) {
+            targetRoom = (cfg.id + 1) % normalTargets.length;
+          }
+          let isToMainCourtyard = false;
+
+          // ONLY TWO GATES IN THE ENTIRE FORT ENTER THE MAIN GATE COURTYARD (Room 7):
+          // 1) Gate index 5 (SE Gate) in Room 5 (Ritual Sanctum)
+          // 2) Gate index 6 (East Arcane Gate) in Room 6 (The Dark Garden)
+          if ((cfg.id === 5 && g === 5) || (cfg.id === 6 && g === 6)) {
+            targetRoom = 7;
+            isToMainCourtyard = true;
+          }
+
+          gates.push({
+            id: g,
+            x: pos.x,
+            y: pos.y,
+            radius: 58,
+            label: pos.label,
+            targetRoomId: targetRoom,
+            isToMainCourtyard
+          });
+        }
+
+        // Spawn EXACTLY 3 GHOSTS per room with large patrol paths covering the huge room
+        const ghosts = [];
+        const patrolPresets = [
+          [
+            { x: 480, y: 480 },
+            { x: cfg.w - 480, y: 480 },
+            { x: cfg.w - 480, y: cfg.h / 2 },
+            { x: 480, y: cfg.h / 2 }
+          ],
+          [
+            { x: 480, y: cfg.h - 460 },
+            { x: cfg.w - 480, y: cfg.h - 460 },
+            { x: cfg.w / 2, y: cfg.h / 2 + 180 }
+          ],
+          [
+            { x: cfg.w / 2 - 550, y: 420 },
+            { x: cfg.w / 2 + 550, y: cfg.h - 420 },
+            { x: cfg.w / 2 - 550, y: cfg.h - 420 },
+            { x: cfg.w / 2 + 550, y: 420 }
+          ]
+        ];
+
+        for (let i = 0; i < 3; i++) {
+          const wp = patrolPresets[i];
+          ghosts.push({
+            id: i,
+            name: `Wraith ${cfg.id + 1}-${i + 1}`,
+            x: wp[0].x,
+            y: wp[0].y,
+            angle: 0,
+            speed: 148 + i * 14,
+            waypoints: wp,
+            wpIndex: 1,
+            visionRange: 340,
+            visionHalfAngle: 0.46, // ~52 deg cone
+            proximitySense: 78,
+            phase: seededRandom() * Math.PI * 2
+          });
+        }
+
+        // Clue Boards in Room 0 (Entrance Dungeon) and Room 6 (The Dark Garden)
+        let clueBoard = null;
+        if (cfg.id === 0) {
+          clueBoard = { x: cfg.w / 2, y: cfg.h / 2 - 260, label: 'Fort Clue Board' };
+        } else if (cfg.id === 6) {
+          clueBoard = { x: cfg.w / 2, y: cfg.h / 2 - 180, label: 'Garden Clue Board' };
+        }
+
+        // Main Exit Gate in Room 7 (Main Gate Courtyard)
+        let mainExitGate = null;
+        if (cfg.id === 7) {
+          mainExitGate = {
+            x: cfg.w / 2,
+            y: 150,
+            w: 280,
+            h: 90,
+            label: 'MAIN EXIT GATE OF THE DEVIL FORT'
+          };
+        }
+
+        return {
+          ...cfg,
+          obstacles,
+          gates,
+          ghosts,
+          clueBoard,
+          mainExitGate
+        };
+      });
+    }
+
+    /*************************************************************************
+     * 4. MULTIPLAYER & GAME STATE MANAGEMENT
+     *    Supports:
+     *    - Single Player (1P), Double Player (2P), Four Player (4P)
+     *    - WebRTC (PeerJS) for cross-device Room Codes + BroadcastChannel for same-device tabs
+     *************************************************************************/
+    let selectedMaxPlayers = 1;
+    let isMultiplayer = false;
+    let isHost = true;
+    let roomCode = '';
+    let myPlayerIndex = 0;
+    let myPlayerName = 'HUNTER 1';
+
+    let peer = null;
+    let hostConnections = []; // Host's list of PeerJS connections to clients
+    let clientConn = null;    // Client's PeerJS connection to host
+    let localChannel = null;  // BroadcastChannel fallback for instant multi-tab play
+
+    let gameState = 'MENU'; // 'MENU' | 'PLAYING' | 'CINEMATIC' | 'VICTORY'
+    let gameSeed = Math.floor(1000 + Math.random() * 9000);
+    let teamHasKey = false;
+    let keyCarrierName = '';
+    let clueReadByTeam = false;
+    let teamAttempts = 1;
+    let gatesUsedCount = 0;
+    let startTimeMs = 0;
+    let escapeDurationSec = 0;
+    let escapedByPlayerName = '';
+    let resetLockoutTimer = 0;
+
+    // Players array (1, 2, or 4 slots)
+    let players = [];
+
+    function initPlayersArray(count) {
+      players = [];
+      for (let i = 0; i < count; i++) {
+        players.push({
+          index: i,
+          name: i === 0 ? myPlayerName : `Waiting...`,
+          color: PLAYER_COLORS[i].hex,
+          colorName: PLAYER_COLORS[i].name,
+          glow: PLAYER_COLORS[i].glow,
+          light: PLAYER_COLORS[i].light,
+          connected: i === 0,
+          isBot: false,
+          roomId: 0,
+          x: 1600 + (i - 1.5) * 75,
+          y: 1200 + (i % 2) * 65,
+          angle: -Math.PI / 2,
+          stamina: 100,
+          sprinting: false
+        });
+      }
+    }
+
+    /* MENU NAVIGATION */
+    function selectMode(playerCount) {
+      SoundFX.init();
+      selectedMaxPlayers = playerCount;
+      if (playerCount === 1) {
+        isMultiplayer = false;
+        isHost = true;
+        myPlayerIndex = 0;
+        myPlayerName = 'SOLO HUNTER';
+        initPlayersArray(1);
+        startNewMatch(gameSeed);
+      } else {
+        isMultiplayer = true;
+        document.getElementById('menuStepMode').classList.add('hidden');
+        document.getElementById('menuStepMultiChoice').classList.remove('hidden');
+        document.getElementById('multiChoiceTitle').textContent =
+          `${playerCount}-Player Mode: Host or Join`;
+        document.getElementById('playerNameInput').value = `HUNTER ${Math.floor(10 + Math.random() * 89)}`;
+      }
+    }
+
+    function backToMainMenu() {
+      cleanupNetwork();
+      document.getElementById('menuStepMode').classList.remove('hidden');
+      document.getElementById('menuStepMultiChoice').classList.add('hidden');
+      document.getElementById('menuStepHost').classList.add('hidden');
+      document.getElementById('menuStepJoin').classList.add('hidden');
+    }
+
+    function cleanupNetwork() {
+      if (peer) {
+        try { peer.destroy(); } catch (e) {}
+        peer = null;
+      }
+      if (localChannel) {
+        try { localChannel.close(); } catch (e) {}
+        localChannel = null;
+      }
+      hostConnections = [];
+      clientConn = null;
+    }
+
+    function openHostLobby() {
+      myPlayerName = (document.getElementById('playerNameInput').value || 'HOST').trim().toUpperCase();
+      isHost = true;
+      myPlayerIndex = 0;
+      roomCode = String(Math.floor(100000 + Math.random() * 900000));
+      gameSeed = Math.floor(1000 + Math.random() * 90000);
+
+      initPlayersArray(selectedMaxPlayers);
+      players[0].name = myPlayerName;
+      players[0].connected = true;
+
+      document.getElementById('menuStepMultiChoice').classList.add('hidden');
+      document.getElementById('menuStepHost').classList.remove('hidden');
+      document.getElementById('hostRoomCodeDisplay').textContent = roomCode;
+      renderLobbySlots('hostSlotsContainer');
+
+      // Setup BroadcastChannel for same-device tabs
+      setupBroadcastChannel(roomCode);
+
+      // Setup PeerJS for cross-device internet connections
+      const peerId = `DEVILFORT_ROOM_${roomCode}`;
+      const statusEl = document.getElementById('hostNetStatus');
+      if (typeof Peer !== 'undefined') {
+        try {
+          peer = new Peer(peerId);
+          peer.on('open', () => {
+            statusEl.textContent = `Room-Code ${roomCode} is LIVE! Other devices can join now.`;
+          });
+          peer.on('connection', (conn) => {
+            conn.on('data', (data) => handleNetworkMessage(data, conn));
+            conn.on('close', () => {
+              hostConnections = hostConnections.filter(c => c !== conn);
+            });
+            hostConnections.push(conn);
+          });
+          peer.on('error', () => {
+            statusEl.textContent = `Room-Code ${roomCode} active on Local Network / Multi-Tab mode.`;
+          });
+        } catch (err) {
+          statusEl.textContent = `Room-Code ${roomCode} active on Local Mode.`;
+        }
+      }
+    }
+
+    function openJoinScreen() {
+      myPlayerName = (document.getElementById('playerNameInput').value || 'HUNTER').trim().toUpperCase();
+      isHost = false;
+      document.getElementById('menuStepMultiChoice').classList.add('hidden');
+      document.getElementById('menuStepJoin').classList.remove('hidden');
+      document.getElementById('joinNetStatus').textContent = 'Enter the 6-digit Room-Code from the Host device.';
+      document.getElementById('joinSlotsContainer').classList.add('hidden');
+    }
+
+    function connectToHostRoom() {
+      const codeInput = document.getElementById('joinCodeInput').value.trim().toUpperCase();
+      if (codeInput.length < 4) {
+        document.getElementById('joinNetStatus').textContent = 'Please enter a valid 6-digit Room-Code.';
+        return;
+      }
+      roomCode = codeInput;
+      const statusEl = document.getElementById('joinNetStatus');
+      statusEl.textContent = `Connecting to Room ${roomCode}...`;
+
+      // 1. Connect via BroadcastChannel (instant if on same device / browser)
+      setupBroadcastChannel(roomCode);
+      sendNetMessage({ type: 'JOIN_REQ', name: myPlayerName });
+
+      // 2. Connect via PeerJS (cross-device over internet)
+      if (typeof Peer !== 'undefined') {
+        try {
+          peer = new Peer();
+          peer.on('open', () => {
+            const conn = peer.connect(`DEVILFORT_ROOM_${roomCode}`);
+            clientConn = conn;
+            conn.on('open', () => {
+              conn.send({ type: 'JOIN_REQ', name: myPlayerName });
+            });
+            conn.on('data', (data) => handleNetworkMessage(data, conn));
+          });
+        } catch (e) {}
+      }
+    }
+
+    function setupBroadcastChannel(code) {
+      if ('BroadcastChannel' in window) {
+        if (localChannel) localChannel.close();
+        localChannel = new BroadcastChannel(`DEVILFORT_BC_${code}`);
+        localChannel.onmessage = (ev) => handleNetworkMessage(ev.data, null);
+      }
+    }
+
+    function sendNetMessage(msg) {
+      if (localChannel) {
+        try { localChannel.postMessage(msg); } catch (e) {}
+      }
+      if (isHost) {
+        hostConnections.forEach(conn => {
+          if (conn && conn.open) {
+            try { conn.send(msg); } catch (e) {}
+          }
+        });
+      } else if (clientConn && clientConn.open) {
+        try { clientConn.send(msg); } catch (e) {}
+      }
+    }
+
+    function handleNetworkMessage(msg, sourceConn) {
+      if (!msg || !msg.type) return;
+
+      if (isHost) {
+        if (msg.type === 'JOIN_REQ') {
+          let slotIdx = players.findIndex(p => !p.connected);
+          if (slotIdx === -1) {
+            slotIdx = players.findIndex(p => p.name === msg.name);
+          }
+          if (slotIdx !== -1) {
+            players[slotIdx].connected = true;
+            players[slotIdx].isBot = false;
+            players[slotIdx].name = msg.name || `HUNTER ${slotIdx + 1}`;
+            renderLobbySlots('hostSlotsContainer');
+
+            const lobbyState = {
+              type: 'LOBBY_UPDATE',
+              maxPlayers: selectedMaxPlayers,
+              assignedName: players[slotIdx].name,
+              assignedIndex: slotIdx,
+              players: players,
+              seed: gameSeed
+            };
+            sendNetMessage(lobbyState);
+            if (sourceConn && sourceConn.open) sourceConn.send(lobbyState);
+          }
+        } else if (msg.type === 'PLAYER_MOVE') {
+          const p = players[msg.index];
+          if (p && msg.index !== myPlayerIndex) {
+            p.x = msg.x;
+            p.y = msg.y;
+            p.angle = msg.angle;
+            p.roomId = msg.roomId;
+            sendNetMessage(msg);
+          }
+        } else if (msg.type === 'CLUE_READ') {
+          clueReadByTeam = true;
+          updateObjectiveHUD();
+          showToast(`📜 ${msg.by} read the Clue Board!`);
+          sendNetMessage(msg);
+        } else if (msg.type === 'KEY_FOUND') {
+          if (!teamHasKey) {
+            teamHasKey = true;
+            keyCarrierName = msg.by;
+            SoundFX.playKeyPickup();
+            updateObjectiveHUD();
+            showToast(`🗝️ ${msg.by} found the MAIN GATE KEY in the Dark Garden!`);
+            sendNetMessage(msg);
+          }
+        } else if (msg.type === 'PLAYER_CAUGHT') {
+          triggerTeamReset(msg.by, msg.roomName, false);
+          sendNetMessage(msg);
+        } else if (msg.type === 'GAME_WON') {
+          triggerRealisticExitCinematic(msg.by, false);
+          sendNetMessage(msg);
+        }
+      } else {
+        // CLIENT HANDLERS
+        if (msg.type === 'LOBBY_UPDATE') {
+          selectedMaxPlayers = msg.maxPlayers;
+          players = msg.players;
+          gameSeed = msg.seed;
+          if (msg.assignedName === myPlayerName && myPlayerIndex === 0) {
+            myPlayerIndex = msg.assignedIndex;
+          }
+          document.getElementById('joinNetStatus').textContent =
+            `Connected as ${PLAYER_COLORS[myPlayerIndex].name}! Waiting for Host to start...`;
+          document.getElementById('joinSlotsContainer').classList.remove('hidden');
+          renderLobbySlots('joinSlotsContainer');
+        } else if (msg.type === 'START_MATCH') {
+          players = msg.players;
+          gameSeed = msg.seed;
+          startNewMatch(gameSeed);
+        } else if (msg.type === 'PLAYER_MOVE') {
+          if (msg.index !== myPlayerIndex && players[msg.index]) {
+            players[msg.index].x = msg.x;
+            players[msg.index].y = msg.y;
+            players[msg.index].angle = msg.angle;
+            players[msg.index].roomId = msg.roomId;
+          }
+        } else if (msg.type === 'BOT_SYNC') {
+          msg.bots.forEach(b => {
+            if (players[b.index] && b.index !== myPlayerIndex) {
+              players[b.index].x = b.x;
+              players[b.index].y = b.y;
+              players[b.index].angle = b.angle;
+              players[b.index].roomId = b.roomId;
+            }
+          });
+        } else if (msg.type === 'CLUE_READ') {
+          clueReadByTeam = true;
+          updateObjectiveHUD();
+          showToast(`📜 ${msg.by} read the Clue Board!`);
+        } else if (msg.type === 'KEY_FOUND') {
+          teamHasKey = true;
+          keyCarrierName = msg.by;
+          SoundFX.playKeyPickup();
+          updateObjectiveHUD();
+          showToast(`🗝️ ${msg.by} found the MAIN GATE KEY!`);
+        } else if (msg.type === 'PLAYER_CAUGHT') {
+          triggerTeamReset(msg.by, msg.roomName, false);
+        } else if (msg.type === 'GAME_WON') {
+          triggerRealisticExitCinematic(msg.by, false);
+        }
+      }
+    }
+
+    function renderLobbySlots(containerId) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = '';
+      players.forEach((p, idx) => {
+        const div = document.createElement('div');
+        div.className = 'slot-item';
+        div.innerHTML = `
+          <div class="slot-dot" style="background:${p.color}; box-shadow:0 0 10px ${p.color};"></div>
+          <div class="slot-info">
+            <span class="slot-name">P${idx + 1}: ${p.connected ? p.name : 'Waiting for Device...'}</span>
+            <span class="slot-status">${p.colorName} ${idx === myPlayerIndex ? '(YOU)' : ''}</span>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function hostStartWithBots() {
+      players.forEach((p, idx) => {
+        if (!p.connected) {
+          p.connected = true;
+          p.isBot = true;
+          p.name = `ALLY BOT ${idx + 1}`;
+        }
+      });
+      hostStartGame();
+    }
+
+    function hostStartGame() {
+      players.forEach((p, idx) => {
+        if (!p.connected) {
+          p.connected = true;
+          p.isBot = true;
+          p.name = `ALLY BOT ${idx + 1}`;
+        }
+      });
+      sendNetMessage({
+        type: 'START_MATCH',
+        players: players,
+        seed: gameSeed
+      });
+      startNewMatch(gameSeed);
+    }
+
+    /*************************************************************************
+     * 5. CORE GAMEPLAY INITIALIZATION, RESET & SHARED FATE LOGIC
+     *************************************************************************/
+    function startNewMatch(seed) {
+      buildFortWorld(seed);
+      teamHasKey = false;
+      keyCarrierName = '';
+      clueReadByTeam = false;
+      teamAttempts = 1;
+      gatesUsedCount = 0;
+      startTimeMs = performance.now();
+
+      resetAllPlayersToStart();
+
+      document.getElementById('mainMenuOverlay').classList.add('hidden');
+      document.getElementById('victoryOverlay').classList.add('hidden');
+      document.getElementById('hud').classList.remove('hidden');
+
+      gameState = 'PLAYING';
+      updateObjectiveHUD();
+      updateRoomHUD();
+      showToast(`🕯️ Entered the Devil Fort! Read the Clue Board & evade the 3 Ghosts in every room!`);
+    }
+
+    function resetAllPlayersToStart() {
+      const startRoom = rooms[0];
+      players.forEach((p, idx) => {
+        p.roomId = 0;
+        p.x = startRoom.w / 2 + (idx - (players.length - 1) / 2) * 80;
+        p.y = startRoom.h / 2 + 60;
+        p.angle = -Math.PI / 2;
+        p.stamina = 100;
+        p.botTargetX = null;
+        p.botTargetY = null;
+        p.botGateCooldown = 0;
+      });
+      teamHasKey = false;
+      keyCarrierName = '';
+      updateObjectiveHUD();
+      updateRoomHUD();
+    }
+
+    function triggerTeamReset(caughtPlayerName, roomName, broadcast = true) {
+      if (resetLockoutTimer > 0 || gameState !== 'PLAYING') return;
+      resetLockoutTimer = 2.8;
+      teamAttempts++;
+      SoundFX.playGhostScream();
+
+      const banner = document.getElementById('caughtBanner');
+      const detail = document.getElementById('caughtDetailText');
+      detail.textContent = `${caughtPlayerName} was seen by a Ghost in ${roomName}! All players are reset to the beginning (Attempt #${teamAttempts})!`;
+      banner.classList.remove('hidden');
+
+      if (broadcast && isMultiplayer) {
+        sendNetMessage({
+          type: 'PLAYER_CAUGHT',
+          by: caughtPlayerName,
+          roomName: roomName
+        });
+      }
+
+      resetAllPlayersToStart();
+      document.getElementById('hudAttemptCount').textContent = `Team Attempt #${teamAttempts}`;
+
+      setTimeout(() => {
+        banner.classList.add('hidden');
+      }, 2500);
+    }
+
+    /*************************************************************************
+     * 6. INPUT & INTERACTION SYSTEM (Keyboard, Mouse & Touch Joysticks)
+     *************************************************************************/
+    const keys = {};
+    let mouseX = window.innerWidth / 2;
+    let mouseY = window.innerHeight / 2;
+    let mouseMovedRecently = false;
+    let nearbyInteractable = null;
+
+    // Touch Joystick state
+    let joyActive = false;
+    let joyDX = 0;
+    let joyDY = 0;
+    let touchSprint = false;
+
+    window.addEventListener('keydown', (e) => {
+      keys[e.code] = true;
+      if ((e.code === 'KeyE' || e.code === 'Space') && gameState === 'PLAYING') {
+        if (!document.getElementById('clueModal').classList.contains('hidden')) {
+          closeClueModal();
+        } else {
+          triggerInteract();
+        }
+      }
+      if (e.code === 'Escape') {
+        closeClueModal();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      keys[e.code] = false;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      mouseMovedRecently = true;
+    });
+
+    // Setup Mobile Touch Joystick
+    const joyZone = document.getElementById('joyMoveZone');
+    const joyKnob = document.getElementById('joyMoveKnob');
+    const sprintBtn = document.getElementById('touchSprintBtn');
+
+    if (joyZone) {
+      const handleTouch = (e) => {
+        e.preventDefault();
+        const touch = e.touches[0];
+        if (!touch) return;
+        const rect = joyZone.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        let dx = touch.clientX - cx;
+        let dy = touch.clientY - cy;
+        const dist = Math.hypot(dx, dy);
+        const maxR = 42;
+        if (dist > maxR) {
+          dx = (dx / dist) * maxR;
+          dy = (dy / dist) * maxR;
+        }
+        joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+        joyDX = dx / maxR;
+        joyDY = dy / maxR;
+        joyActive = true;
+        mouseMovedRecently = false;
+      };
+      joyZone.addEventListener('touchstart', handleTouch, { passive: false });
+      joyZone.addEventListener('touchmove', handleTouch, { passive: false });
+      joyZone.addEventListener('touchend', () => {
+        joyActive = false;
+        joyDX = 0;
+        joyDY = 0;
+        joyKnob.style.transform = `translate(0px, 0px)`;
+      });
+    }
+
+    if (sprintBtn) {
+      sprintBtn.addEventListener('touchstart', (e) => { e.preventDefault(); touchSprint = true; });
+      sprintBtn.addEventListener('touchend', (e) => { e.preventDefault(); touchSprint = false; });
+    }
+
+    function showToast(msg) {
+      const el = document.getElementById('toastBanner');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      clearTimeout(el._timer);
+      el._timer = setTimeout(() => el.classList.add('hidden'), 3800);
+    }
+
+    function openClueModal() {
+      const landmark = GARDEN_LANDMARKS[keyLandmarkIndex];
+      document.getElementById('clueRiddleText').textContent = landmark.riddle;
+      document.getElementById('clueMetaText').innerHTML =
+        `<strong>Garden Key Location:</strong> ${landmark.name}<br>` +
+        `<strong>Main Gate Secret:</strong> Out of all 49 gates in the Devil Fort, only the <strong>SE Gate in the Ritual Sanctum</strong> and the <strong>East Arcane Gate in The Dark Garden</strong> teleport into the <strong>Main Gate Courtyard</strong>!`;
+      document.getElementById('clueModal').classList.remove('hidden');
+
+      if (!clueReadByTeam) {
+        clueReadByTeam = true;
+        updateObjectiveHUD();
+        if (isMultiplayer) {
+          sendNetMessage({ type: 'CLUE_READ', by: players[myPlayerIndex].name });
+        }
+      }
+    }
+
+    function closeClueModal() {
+      document.getElementById('clueModal').classList.add('hidden');
+    }
+
+    function triggerInteract() {
+      if (gameState !== 'PLAYING' || !nearbyInteractable) return;
+      const me = players[myPlayerIndex];
+
+      if (nearbyInteractable.type === 'CLUE_BOARD') {
+        openClueModal();
+      } else if (nearbyInteractable.type === 'GATE') {
+        const gate = nearbyInteractable.gate;
+        const targetRoom = rooms[gate.targetRoomId];
+        SoundFX.playGateTeleport();
+        gatesUsedCount++;
+        me.roomId = targetRoom.id;
+        // Spawn near center of destination room
+        me.x = targetRoom.w / 2 + (Math.random() * 120 - 60);
+        me.y = targetRoom.h / 2 + (Math.random() * 120 - 60);
+        updateRoomHUD();
+        showToast(`🌀 Teleported through ${gate.label} → ${targetRoom.name}`);
+      } else if (nearbyInteractable.type === 'MAIN_EXIT') {
+        if (!teamHasKey) {
+          showToast(`🔒 LOCKED! You must find the Main Gate Key in The Dark Garden first!`);
+        } else {
+          if (isMultiplayer) {
+            sendNetMessage({ type: 'GAME_WON', by: me.name });
+          }
+          triggerRealisticExitCinematic(me.name, true);
+        }
+      }
+    }
+
+    function updateObjectiveHUD() {
+      const o1 = document.getElementById('obj1');
+      const o2 = document.getElementById('obj2');
+      const o3 = document.getElementById('obj3');
+      const reminder = document.getElementById('hudClueReminder');
+      const landmark = GARDEN_LANDMARKS[keyLandmarkIndex];
+
+      o1.className = 'obj-item ' + (clueReadByTeam ? 'obj-done' : 'obj-active');
+      o2.className = 'obj-item ' + (teamHasKey ? 'obj-done' : (clueReadByTeam ? 'obj-active' : ''));
+      o3.className = 'obj-item ' + (teamHasKey ? 'obj-active' : '');
+
+      if (teamHasKey) {
+        reminder.textContent = `🗝️ KEY ACQUIRED (by ${keyCarrierName})! Take the Ritual Sanctum SE Gate or Garden East Gate to the Main Gate!`;
+        reminder.style.color = '#00ff88';
+      } else if (clueReadByTeam) {
+        reminder.textContent = `📜 Clue Active: Key is at "${landmark.name}" in The Dark Garden!`;
+        reminder.style.color = '#f5c242';
+      } else {
+        reminder.textContent = `📜 Clue Status: Unread — Inspect a Clue Board in the Entrance or Dark Garden!`;
+        reminder.style.color = '#f5c242';
+      }
+    }
+
+    function updateRoomHUD() {
+      const me = players[myPlayerIndex];
+      if (!me) return;
+      const r = rooms[me.roomId];
+      document.getElementById('hudRoomName').textContent = `${r.name}`;
+      document.getElementById('hudRoomSub').textContent =
+        `${r.sub} • 3 Ghosts Hunting • ${r.gates.length} Teleport Gates`;
+    }
+
+    /*************************************************************************
+     * 7. UPDATE LOOP (Player Physics, Ghost AI Vision, Co-op Bots & Sync)
+     *************************************************************************/
+    let netSyncAccum = 0;
+
+    function updateGame(dt) {
+      if (resetLockoutTimer > 0) {
+        resetLockoutTimer = Math.max(0, resetLockoutTimer - dt);
+      }
+
+      const me = players[myPlayerIndex];
+      if (!me) return;
+      const curRoom = rooms[me.roomId];
+
+      // 1. Local Player Movement
+      let moveX = 0;
+      let moveY = 0;
+      if (keys['KeyW'] || keys['ArrowUp']) moveY -= 1;
+      if (keys['KeyS'] || keys['ArrowDown']) moveY += 1;
+      if (keys['KeyA'] || keys['ArrowLeft']) moveX -= 1;
+      if (keys['KeyD'] || keys['ArrowRight']) moveX += 1;
+
+      if (joyActive) {
+        moveX = joyDX;
+        moveY = joyDY;
+      }
+
+      const mag = Math.hypot(moveX, moveY);
+      if (mag > 1) {
+        moveX /= mag;
+        moveY /= mag;
+      }
+
+      const wantsSprint = keys['ShiftLeft'] || keys['ShiftRight'] || touchSprint;
+      if (wantsSprint && mag > 0.1 && me.stamina > 5) {
+        me.sprinting = true;
+        me.stamina = Math.max(0, me.stamina - 28 * dt);
+      } else {
+        me.sprinting = false;
+        me.stamina = Math.min(100, me.stamina + 18 * dt);
+      }
+      document.getElementById('staminaBar').style.width = `${me.stamina}%`;
+
+      const speed = me.sprinting ? 330 : 215;
+      const nextX = me.x + moveX * speed * dt;
+      const nextY = me.y + moveY * speed * dt;
+
+      // Resolve collisions with room bounds and obstacles
+      const radius = 20;
+      if (!collidesWithRoom(nextX, me.y, radius, curRoom)) me.x = nextX;
+      if (!collidesWithRoom(me.x, nextY, radius, curRoom)) me.y = nextY;
+
+      // Update flashlight aim angle
+      if (mouseMovedRecently) {
+        const cx = window.innerWidth / 2;
+        const cy = window.innerHeight / 2;
+        me.angle = Math.atan2(mouseY - cy, mouseX - cx);
+      } else if (mag > 0.15) {
+        me.angle = Math.atan2(moveY, moveX);
+      }
+
+      // 2. Check Key Pickup in The Dark Garden (Room 6)
+      if (me.roomId === 6 && !teamHasKey) {
+        const keySpot = GARDEN_LANDMARKS[keyLandmarkIndex];
+        if (Math.hypot(me.x - keySpot.x, me.y - keySpot.y) < 62) {
+          teamHasKey = true;
+          keyCarrierName = me.name;
+          SoundFX.playKeyPickup();
+          updateObjectiveHUD();
+          showToast(`🗝️ YOU FOUND THE MAIN GATE KEY at ${keySpot.name}!`);
+          if (isMultiplayer) {
+            sendNetMessage({ type: 'KEY_FOUND', by: me.name });
+          }
+        }
+      }
+
+      // 3. Check Nearby Interactables (Gates, Clue Board, Main Exit Gate)
+      nearbyInteractable = null;
+      if (curRoom.clueBoard && Math.hypot(me.x - curRoom.clueBoard.x, me.y - curRoom.clueBoard.y) < 85) {
+        nearbyInteractable = {
+          type: 'CLUE_BOARD',
+          prompt: 'Press [E] to Read Clue Board'
+        };
+      }
+      for (const gate of curRoom.gates) {
+        if (Math.hypot(me.x - gate.x, me.y - gate.y) < gate.radius + 24) {
+          nearbyInteractable = {
+            type: 'GATE',
+            gate,
+            prompt: `Press [E] to Enter ${gate.label}`
+          };
+          break;
+        }
+      }
+      if (curRoom.mainExitGate) {
+        const mg = curRoom.mainExitGate;
+        if (Math.abs(me.x - mg.x) < mg.w / 2 + 30 && Math.abs(me.y - mg.y) < mg.h / 2 + 50) {
+          nearbyInteractable = {
+            type: 'MAIN_EXIT',
+            prompt: teamHasKey
+              ? '🔓 Press [E] to UNLOCK MAIN GATE & ESCAPE!'
+              : '🔒 Main Gate Locked (Requires Key from The Dark Garden)'
+          };
+        }
+      }
+
+      const promptEl = document.getElementById('interactPrompt');
+      if (nearbyInteractable) {
+        promptEl.textContent = nearbyInteractable.prompt;
+        promptEl.classList.remove('hidden');
+      } else {
+        promptEl.classList.add('hidden');
+      }
+
+      // 4. Update Co-op AI Bots (if Host filled empty slots with AI bots)
+      if (isHost) {
+        updateCoopBots(dt);
+      }
+
+      // 5. Update All 3 Ghosts in Every Room & Check Vision Detection
+      rooms.forEach((room) => {
+        room.ghosts.forEach((g) => {
+          g.phase += dt * 4;
+          const targetWP = g.waypoints[g.wpIndex];
+          const dx = targetWP.x - g.x;
+          const dy = targetWP.y - g.y;
+          const dist = Math.hypot(dx, dy);
+
+          if (dist < 20) {
+            g.wpIndex = (g.wpIndex + 1) % g.waypoints.length;
+          } else {
+            const desiredAngle = Math.atan2(dy, dx);
+            let diff = desiredAngle - g.angle;
+            while (diff > Math.PI) diff -= Math.PI * 2;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+            g.angle += diff * Math.min(1, dt * 5);
+            g.x += (dx / dist) * g.speed * dt;
+            g.y += (dy / dist) * g.speed * dt;
+          }
+
+          // Check if this ghost spots our local player (or AI bot if host)
+          if (resetLockoutTimer <= 0) {
+            players.forEach((p) => {
+              const shouldCheck = (p.index === myPlayerIndex) || (isHost && p.isBot);
+              if (!shouldCheck || p.roomId !== room.id) return;
+
+              if (canGhostSeePlayer(g, p, room)) {
+                triggerTeamReset(p.name, room.name, true);
+              }
+            });
+          }
+        });
+      });
+
+      // 6. Network Position Sync & Team Status Panel
+      netSyncAccum += dt;
+      if (isMultiplayer && netSyncAccum >= 0.05) {
+        netSyncAccum = 0;
+        sendNetMessage({
+          type: 'PLAYER_MOVE',
+          index: myPlayerIndex,
+          x: Math.round(me.x),
+          y: Math.round(me.y),
+          angle: Number(me.angle.toFixed(2)),
+          roomId: me.roomId
+        });
+
+        if (isHost) {
+          const bots = players.filter(p => p.isBot).map(b => ({
+            index: b.index,
+            x: Math.round(b.x),
+            y: Math.round(b.y),
+            angle: Number(b.angle.toFixed(2)),
+            roomId: b.roomId
+          }));
+          if (bots.length > 0) {
+            sendNetMessage({ type: 'BOT_SYNC', bots });
+          }
+        }
+      }
+
+      renderTeamHUD();
+    }
+
+    function updateCoopBots(dt) {
+      players.forEach((bot) => {
+        if (!bot.isBot) return;
+        const r = rooms[bot.roomId];
+        bot.botGateCooldown = Math.max(0, (bot.botGateCooldown || 0) - dt);
+
+        if (!bot.botTargetX || Math.hypot(bot.x - bot.botTargetX, bot.y - bot.botTargetY) < 60) {
+          bot.botTargetX = 360 + Math.random() * (r.w - 720);
+          bot.botTargetY = 360 + Math.random() * (r.h - 720);
+        }
+
+        let steerX = bot.botTargetX - bot.x;
+        let steerY = bot.botTargetY - bot.y;
+        const len = Math.hypot(steerX, steerY) || 1;
+        steerX /= len;
+        steerY /= len;
+
+        r.ghosts.forEach((g) => {
+          const gd = Math.hypot(bot.x - g.x, bot.y - g.y);
+          if (gd < 420) {
+            steerX += ((bot.x - g.x) / gd) * 2.6;
+            steerY += ((bot.y - g.y) / gd) * 2.6;
+          }
+        });
+
+        const sLen = Math.hypot(steerX, steerY) || 1;
+        steerX /= sLen;
+        steerY /= sLen;
+
+        const nx = bot.x + steerX * 190 * dt;
+        const ny = bot.y + steerY * 190 * dt;
+        if (!collidesWithRoom(nx, bot.y, 20, r)) bot.x = nx;
+        if (!collidesWithRoom(bot.x, ny, 20, r)) bot.y = ny;
+        bot.angle = Math.atan2(steerY, steerX);
+      });
+    }
+
+    function collidesWithRoom(x, y, radius, room) {
+      if (x - radius < 90 || x + radius > room.w - 90 || y - radius < 90 || y + radius > room.h - 90) {
+        return true;
+      }
+      for (const obs of room.obstacles) {
+        if (
+          x + radius > obs.x &&
+          x - radius < obs.x + obs.w &&
+          y + radius > obs.y &&
+          y - radius < obs.y + obs.h
+        ) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function canGhostSeePlayer(ghost, player, room) {
+      const dx = player.x - ghost.x;
+      const dy = player.y - ghost.y;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist < ghost.proximitySense) return true;
+      if (dist > ghost.visionRange) return false;
+
+      const angleToPlayer = Math.atan2(dy, dx);
+      let diff = angleToPlayer - ghost.angle;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+
+      if (Math.abs(diff) > ghost.visionHalfAngle) return false;
+
+      // Raycast check against room obstacles so pillars/hedges block ghost vision
+      const steps = Math.ceil(dist / 25);
+      for (let i = 1; i < steps; i++) {
+        const rx = ghost.x + (dx * i) / steps;
+        const ry = ghost.y + (dy * i) / steps;
+        for (const obs of room.obstacles) {
+          if (rx >= obs.x && rx <= obs.x + obs.w && ry >= obs.y && ry <= obs.y + obs.h) {
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    function renderTeamHUD() {
+      const container = document.getElementById('hudTeamList');
+      let html = '';
+      players.forEach((p, idx) => {
+        const rName = rooms[p.roomId] ? rooms[p.roomId].name : 'Unknown';
+        html += `
+          <div class="team-row">
+            <span class="team-player-tag" style="color:${p.color};">
+              ● ${p.name}${idx === myPlayerIndex ? ' (YOU)' : ''}
+            </span>
+            <span class="team-room-tag">${rName}</span>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    /*************************************************************************
+     * 8. RENDER ENGINE (Dark Fortress, Gates, 3 Ghosts/Room, Dynamic Darkness)
+     *************************************************************************/
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const lightCanvas = document.createElement('canvas');
+    const lightCtx = lightCanvas.getContext('2d');
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      lightCanvas.width = window.innerWidth;
+      lightCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function renderPlayingState(now) {
+      const me = players[myPlayerIndex];
+      if (!me) return;
+      const room = rooms[me.roomId];
+
+      const camX = me.x - canvas.width / 2;
+      const camY = me.y - canvas.height / 2;
+
+      // 1. Clear & Draw Room Floor
+      ctx.fillStyle = '#020205';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.translate(-camX, -camY);
+
+      // Room background floor
+      ctx.fillStyle = room.floor;
+      ctx.fillRect(0, 0, room.w, room.h);
+
+      // Subtle stone tile grid
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+      ctx.lineWidth = 2;
+      const gridStep = 160;
+      for (let gx = 0; gx <= room.w; gx += gridStep) {
+        ctx.beginPath();
+        ctx.moveTo(gx, 0);
+        ctx.lineTo(gx, room.h);
+        ctx.stroke();
+      }
+      for (let gy = 0; gy <= room.h; gy += gridStep) {
+        ctx.beginPath();
+        ctx.moveTo(0, gy);
+        ctx.lineTo(room.w, gy);
+        ctx.stroke();
+      }
+
+      // Outer Fortress Walls
+      ctx.fillStyle = room.wall;
+      ctx.fillRect(0, 0, room.w, 90);
+      ctx.fillRect(0, room.h - 90, room.w, 90);
+      ctx.fillRect(0, 0, 90, room.h);
+      ctx.fillRect(room.w - 90, 0, 90, room.h);
+      ctx.strokeStyle = room.accent;
+      ctx.lineWidth = 4;
+      ctx.strokeRect(90, 90, room.w - 180, room.h - 180);
+
+      // Draw Obstacles (Pillars or Hedges)
+      room.obstacles.forEach((obs) => {
+        ctx.fillStyle = obs.type === 'hedge' ? '#0c2112' : room.wall;
+        ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+        ctx.strokeStyle = obs.type === 'hedge' ? '#1f542d' : room.accent;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(obs.x, obs.y, obs.w, obs.h);
+      });
+
+      // Draw Garden Landmarks & Main Gate Key if inside The Dark Garden (Room 6)
+      if (room.id === 6) {
+        GARDEN_LANDMARKS.forEach((lm, idx) => {
+          ctx.save();
+          ctx.translate(lm.x, lm.y);
+          ctx.fillStyle = 'rgba(25, 45, 30, 0.9)';
+          ctx.beginPath();
+          ctx.arc(0, 0, 46, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#3d8c56';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          ctx.fillStyle = '#a3d9b4';
+          ctx.font = 'bold 12px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(lm.name, 0, -56);
+
+          // Draw the glowing Main Gate Key at the chosen landmark if not picked up yet
+          if (idx === keyLandmarkIndex && !teamHasKey) {
+            const pulse = Math.sin(now * 0.006) * 6;
+            const grad = ctx.createRadialGradient(0, 0, 4, 0, 0, 38 + pulse);
+            grad.addColorStop(0, 'rgba(255, 215, 64, 0.95)');
+            grad.addColorStop(1, 'rgba(255, 215, 64, 0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(0, 0, 38 + pulse, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#ffd740';
+            ctx.font = 'bold 26px sans-serif';
+            ctx.fillText('🗝️', 0, 9);
+            ctx.font = 'bold 13px sans-serif';
+            ctx.fillText('MAIN GATE KEY', 0, 32);
+          }
+          ctx.restore();
+        });
+      }
+
+      // Draw Clue Board if present in room
+      if (room.clueBoard) {
+        const cb = room.clueBoard;
+        ctx.save();
+        ctx.translate(cb.x, cb.y);
+        ctx.fillStyle = '#3b2514';
+        ctx.fillRect(-48, -32, 96, 64);
+        ctx.strokeStyle = '#f5c242';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(-48, -32, 96, 64);
+        ctx.fillStyle = '#f5c242';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('📜 CLUE BOARD', 0, -42);
+        ctx.fillStyle = '#f7e4be';
+        ctx.font = '11px sans-serif';
+        ctx.fillText('Press [E] to Read', 0, 5);
+        ctx.restore();
+      }
+
+      // Draw All Teleport Gates in the Room
+      room.gates.forEach((gate) => {
+        ctx.save();
+        ctx.translate(gate.x, gate.y);
+        const swirl = now * 0.003;
+
+        const portalColor = gate.isToMainCourtyard ? '#f5c242' : '#b5179e';
+        const glowColor = gate.isToMainCourtyard ? 'rgba(245, 194, 66, 0.45)' : 'rgba(181, 23, 158, 0.4)';
+
+        const gGrad = ctx.createRadialGradient(0, 0, 10, 0, 0, gate.radius + 18);
+        gGrad.addColorStop(0, portalColor);
+        gGrad.addColorStop(0.6, glowColor);
+        gGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = gGrad;
+        ctx.beginPath();
+        ctx.arc(0, 0, gate.radius + 18, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = portalColor;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(0, 0, gate.radius, swirl, swirl + Math.PI * 1.4);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, gate.radius * 0.65, -swirl, -swirl + Math.PI * 1.2);
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`🌀 ${gate.label}`, 0, -gate.radius - 14);
+        ctx.restore();
+      });
+
+      // Draw Main Exit Gate if in Room 7 (Main Gate Courtyard)
+      if (room.mainExitGate) {
+        const mg = room.mainExitGate;
+        ctx.save();
+        ctx.translate(mg.x, mg.y);
+        ctx.fillStyle = teamHasKey ? '#184e2c' : '#3a121c';
+        ctx.fillRect(-mg.w / 2, -mg.h / 2, mg.w, mg.h);
+        ctx.strokeStyle = teamHasKey ? '#00ff88' : '#ff3355';
+        ctx.lineWidth = 5;
+        ctx.strokeRect(-mg.w / 2, -mg.h / 2, mg.w, mg.h);
+
+        // Iron bars
+        for (let bx = -mg.w / 2 + 28; bx < mg.w / 2; bx += 28) {
+          ctx.beginPath();
+          ctx.moveTo(bx, -mg.h / 2);
+          ctx.lineTo(bx, mg.h / 2);
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(mg.label, 0, -mg.h / 2 - 14);
+        ctx.fillStyle = teamHasKey ? '#00ff88' : '#ff99ac';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.fillText(teamHasKey ? '🔓 KEY READY - PRESS [E] TO ESCAPE!' : '🔒 LOCKED - FIND GARDEN KEY FIRST', 0, mg.h / 2 + 24);
+        ctx.restore();
+      }
+
+      // Draw the 3 Ghosts & Their Deadly Vision Cones
+      room.ghosts.forEach((g) => {
+        ctx.save();
+        ctx.translate(g.x, g.y);
+
+        // Vision Cone
+        const coneGrad = ctx.createRadialGradient(0, 0, 15, 0, 0, g.visionRange);
+        coneGrad.addColorStop(0, 'rgba(255, 25, 65, 0.42)');
+        coneGrad.addColorStop(1, 'rgba(255, 25, 65, 0.0)');
+        ctx.fillStyle = coneGrad;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, g.visionRange, g.angle - g.visionHalfAngle, g.angle + g.visionHalfAngle);
+        ctx.closePath();
+        ctx.fill();
+
+        // Spectral Body
+        const bob = Math.sin(g.phase) * 6;
+        ctx.shadowColor = '#ff1e42';
+        ctx.shadowBlur = 18;
+        ctx.fillStyle = 'rgba(215, 235, 255, 0.88)';
+        ctx.beginPath();
+        ctx.arc(0, bob - 8, 22, Math.PI, 0, false);
+        ctx.lineTo(22, bob + 22);
+        for (let w = 22; w >= -22; w -= 11) {
+          ctx.lineTo(w - 5, bob + (w % 22 === 0 ? 14 : 24));
+        }
+        ctx.closePath();
+        ctx.fill();
+
+        // Glowing Red Eyes
+        const ex = Math.cos(g.angle) * 8;
+        const ey = Math.sin(g.angle) * 8;
+        ctx.fillStyle = '#ff002b';
+        ctx.beginPath();
+        ctx.arc(ex - 5, bob - 8 + ey, 4, 0, Math.PI * 2);
+        ctx.arc(ex + 5, bob - 8 + ey, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#ff8fa3';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(g.name, 0, bob - 36);
+        ctx.restore();
+      });
+
+      // Draw All Players Currently in This Room (with Unique Colors)
+      players.forEach((p) => {
+        if (p.roomId !== room.id) return;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+
+        // Outer Aura
+        ctx.fillStyle = p.glow;
+        ctx.beginPath();
+        ctx.arc(0, 0, 30, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Player Circle
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, 18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+
+        // Flashlight Direction Indicator
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(p.angle) * 26, Math.sin(p.angle) * 26);
+        ctx.stroke();
+
+        // Name & Color Tag
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(p.name, 0, -28);
+        ctx.restore();
+      });
+
+      ctx.restore();
+
+      // 2. PITCH-DARKNESS OVERLAY & FLASHLIGHT CONES (Makes the fort genuinely dark & tense)
+      lightCtx.globalCompositeOperation = 'source-over';
+      lightCtx.fillStyle = 'rgba(2, 2, 6, 0.94)';
+      lightCtx.fillRect(0, 0, lightCanvas.width, lightCanvas.height);
+
+      lightCtx.globalCompositeOperation = 'destination-out';
+
+      // Cut out flashlight & aura for every player in the current room
+      players.forEach((p) => {
+        if (p.roomId !== room.id) return;
+        const sx = p.x - camX;
+        const sy = p.y - camY;
+
+        // Soft ambient glow around player
+        const auraGrad = lightCtx.createRadialGradient(sx, sy, 12, sx, sy, 145);
+        auraGrad.addColorStop(0, 'rgba(0,0,0,1)');
+        auraGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        lightCtx.fillStyle = auraGrad;
+        lightCtx.beginPath();
+        lightCtx.arc(sx, sy, 145, 0, Math.PI * 2);
+        lightCtx.fill();
+
+        // Directional Flashlight Beam
+        const beamGrad = lightCtx.createRadialGradient(sx, sy, 20, sx, sy, 460);
+        beamGrad.addColorStop(0, 'rgba(0,0,0,0.98)');
+        beamGrad.addColorStop(0.7, 'rgba(0,0,0,0.65)');
+        beamGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        lightCtx.fillStyle = beamGrad;
+        lightCtx.beginPath();
+        lightCtx.moveTo(sx, sy);
+        lightCtx.arc(sx, sy, 460, p.angle - 0.52, p.angle + 0.52);
+        lightCtx.closePath();
+        lightCtx.fill();
+      });
+
+      // Subtle glow cutouts for Gates & Ghosts so their eyes glimmer in the dark
+      room.gates.forEach((gate) => {
+        const gx = gate.x - camX;
+        const gy = gate.y - camY;
+        const gGrad = lightCtx.createRadialGradient(gx, gy, 8, gx, gy, 95);
+        gGrad.addColorStop(0, 'rgba(0,0,0,0.75)');
+        gGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        lightCtx.fillStyle = gGrad;
+        lightCtx.beginPath();
+        lightCtx.arc(gx, gy, 95, 0, Math.PI * 2);
+        lightCtx.fill();
+      });
+
+      room.ghosts.forEach((g) => {
+        const gx = g.x - camX;
+        const gy = g.y - camY;
+        const gGrad = lightCtx.createRadialGradient(gx, gy, 5, gx, gy, 70);
+        gGrad.addColorStop(0, 'rgba(0,0,0,0.65)');
+        gGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        lightCtx.fillStyle = gGrad;
+        lightCtx.beginPath();
+        lightCtx.arc(gx, gy, 70, 0, Math.PI * 2);
+        lightCtx.fill();
+      });
+
+      ctx.drawImage(lightCanvas, 0, 0);
+    }
+
+    /*************************************************************************
+     * 9. REALISTIC ENDING ANIMATION: EVERY GHOST EXITING THE DEVIL FORT
+     *************************************************************************/
+    let cinematicTime = 0;
+    let exodusGhosts = [];
+    let exodusParticles = [];
+
+    function triggerRealisticExitCinematic(winnerName, broadcast) {
+      if (gameState === 'CINEMATIC' || gameState === 'VICTORY') return;
+      escapedByPlayerName = winnerName || players[myPlayerIndex].name;
+      escapeDurationSec = Math.max(1, Math.round((performance.now() - startTimeMs) / 1000));
+
+      document.getElementById('hud').classList.add('hidden');
+      document.getElementById('interactPrompt').classList.add('hidden');
+      document.getElementById('clueModal').classList.add('hidden');
+      document.getElementById('victoryOverlay').classList.add('hidden');
+
+      SoundFX.playExodusChord();
+      gameState = 'CINEMATIC';
+      cinematicTime = 0;
+
+      // Spawn all 24 Fort Ghosts + swirling spectral wisps pouring out of the Main Fort Gate
+      exodusGhosts = [];
+      for (let i = 0; i < 36; i++) {
+        exodusGhosts.push({
+          id: i,
+          delay: i * 0.16,
+          x: 0,
+          y: 0,
+          vx: (Math.random() - 0.5) * 260,
+          vy: -140 - Math.random() * 180,
+          scale: 0.55 + Math.random() * 0.85,
+          alpha: 0,
+          hue: Math.random() > 0.35 ? 195 : 345,
+          wobbleSpeed: 3 + Math.random() * 4,
+          phase: Math.random() * Math.PI * 2,
+          trail: []
+        });
+      }
+
+      exodusParticles = [];
+      for (let i = 0; i < 90; i++) {
+        exodusParticles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          vy: -30 - Math.random() * 80,
+          size: 1.5 + Math.random() * 3,
+          alpha: 0.2 + Math.random() * 0.7
+        });
+      }
+    }
+
+    function replayEndingCinematic() {
+      triggerRealisticExitCinematic(escapedByPlayerName, false);
+    }
+
+    function updateAndRenderCinematic(dt) {
+      cinematicTime += dt;
+      const w = canvas.width;
+      const h = canvas.height;
+      const gateX = w / 2;
+      const gateY = h * 0.66;
+
+      // Sky gradient transitioning from blood-moon night to eerie liberation glow
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
+      skyGrad.addColorStop(0, '#04030a');
+      skyGrad.addColorStop(0.55, '#190a24');
+      skyGrad.addColorStop(1, '#08050c');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Full Moon & Volumetric Halo
+      const moonGrad = ctx.createRadialGradient(w * 0.5, h * 0.22, 10, w * 0.5, h * 0.22, 220);
+      moonGrad.addColorStop(0, 'rgba(255, 235, 200, 0.95)');
+      moonGrad.addColorStop(0.25, 'rgba(210, 230, 255, 0.35)');
+      moonGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = moonGrad;
+      ctx.beginPath();
+      ctx.arc(w * 0.5, h * 0.22, 220, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Silhouette of the Massive Devil Fort Bastion & Towers
+      ctx.fillStyle = '#09060f';
+      const fortW = Math.min(760, w * 0.85);
+      const fortLeft = gateX - fortW / 2;
+      ctx.fillRect(fortLeft, gateY - 210, fortW, 230);
+      // Towers
+      ctx.fillRect(fortLeft - 40, gateY - 310, 110, 330);
+      ctx.fillRect(fortLeft + fortW - 70, gateY - 310, 110, 330);
+      ctx.fillRect(gateX - 130, gateY - 280, 260, 280);
+
+      // Glowing Open Main Gate Archway
+      const openFactor = Math.min(1, cinematicTime / 1.5);
+      const archGlow = ctx.createRadialGradient(gateX, gateY - 40, 10, gateX, gateY - 40, 240);
+      archGlow.addColorStop(0, 'rgba(0, 245, 212, 0.95)');
+      archGlow.addColorStop(0.45, 'rgba(138, 43, 226, 0.45)');
+      archGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = archGlow;
+      ctx.beginPath();
+      ctx.arc(gateX, gateY - 40, 240, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Gate Arch Cutout
+      ctx.fillStyle = '#cdf7ff';
+      ctx.beginPath();
+      ctx.arc(gateX, gateY - 55, 65, Math.PI, 0, false);
+      ctx.lineTo(gateX + 65, gateY + 20);
+      ctx.lineTo(gateX - 65, gateY + 20);
+      ctx.closePath();
+      ctx.fill();
+
+      // Swinging Iron Gate Doors opening outward
+      ctx.fillStyle = '#1b1326';
+      ctx.strokeStyle = '#f5c242';
+      ctx.lineWidth = 3;
+      const doorW = 65 * (1 - openFactor * 0.78);
+      ctx.fillRect(gateX - 65, gateY - 110, doorW, 130);
+      ctx.strokeRect(gateX - 65, gateY - 110, doorW, 130);
+      ctx.fillRect(gateX + 65 - doorW, gateY - 110, doorW, 130);
+      ctx.strokeRect(gateX + 65 - doorW, gateY - 110, doorW, 130);
+
+      // Rising Soul Embers
+      exodusParticles.forEach((pt) => {
+        pt.y += pt.vy * dt;
+        if (pt.y < 0) pt.y = h;
+        ctx.fillStyle = `rgba(140, 245, 255, ${pt.alpha})`;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Render Every Ghost Pouring Out of the Main Gate & Spiraling into the Night Sky
+      exodusGhosts.forEach((eg) => {
+        const activeT = cinematicTime - eg.delay;
+        if (activeT <= 0) return;
+
+        if (activeT < dt * 2) {
+          eg.x = gateX + (Math.random() - 0.5) * 40;
+          eg.y = gateY - 25;
+        }
+
+        eg.phase += dt * eg.wobbleSpeed;
+        eg.x += (eg.vx + Math.sin(eg.phase) * 90) * dt;
+        eg.y += eg.vy * dt;
+        eg.alpha = Math.min(0.92, activeT * 1.2) * Math.max(0, 1 - activeT / 6.2);
+
+        eg.trail.push({ x: eg.x, y: eg.y });
+        if (eg.trail.length > 14) eg.trail.shift();
+
+        if (eg.alpha <= 0.01) return;
+
+        ctx.save();
+        // Draw ectoplasmic ribbon trail
+        for (let t = 0; t < eg.trail.length; t++) {
+          const pt = eg.trail[t];
+          const ratio = t / eg.trail.length;
+          ctx.fillStyle = `hsla(${eg.hue}, 95%, 72%, ${eg.alpha * ratio * 0.38})`;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 18 * eg.scale * ratio, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Draw Ghost Head & Cloak
+        ctx.translate(eg.x, eg.y);
+        ctx.scale(eg.scale, eg.scale);
+        ctx.fillStyle = `hsla(${eg.hue}, 100%, 88%, ${eg.alpha})`;
+        ctx.shadowColor = `hsla(${eg.hue}, 100%, 65%, 0.9)`;
+        ctx.shadowBlur = 20;
+        ctx.beginPath();
+        ctx.arc(0, -10, 18, Math.PI, 0, false);
+        ctx.lineTo(18, 20);
+        ctx.lineTo(6, 12);
+        ctx.lineTo(0, 22);
+        ctx.lineTo(-6, 12);
+        ctx.lineTo(-18, 20);
+        ctx.closePath();
+        ctx.fill();
+
+        // Glowing eyes
+        ctx.fillStyle = '#12041c';
+        ctx.beginPath();
+        ctx.arc(-6, -10, 3.2, 0, Math.PI * 2);
+        ctx.arc(6, -10, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // Draw Escaped Team Players Standing Victoriously in the Foreground Courtyard
+      const groundY = gateY + 115;
+      players.forEach((p, idx) => {
+        const px = gateX + (idx - (players.length - 1) / 2) * 90;
+        const py = groundY;
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.fillStyle = p.glow;
+        ctx.beginPath();
+        ctx.arc(0, 0, 34, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, 18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(p.name, 0, 34);
+        ctx.restore();
+      });
+
+      // Cinematic Caption Overlay
+      ctx.save();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 26px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = '#000';
+      ctx.shadowBlur = 12;
+      ctx.fillText('THE MAIN GATE OPENS — EVERY GHOST EXITS THE DEVIL FORT!', w / 2, 58);
+      ctx.fillStyle = '#f5c242';
+      ctx.font = '16px sans-serif';
+      ctx.fillText(`Unlocked by ${escapedByPlayerName} • All 24 Spectral Wraiths Released into the Night`, w / 2, 88);
+      ctx.restore();
+
+      if (cinematicTime >= 7.8 && gameState === 'CINEMATIC') {
+        gameState = 'VICTORY';
+        showVictorySummary();
+      }
+    }
+
+    function showVictorySummary() {
+      const statsEl = document.getElementById('victoryStats');
+      const playerList = players.map(p => `<span style="color:${p.color}; font-weight:700;">${p.name} (${p.colorName})</span>`).join(', ');
+      statsEl.innerHTML = `
+        <div>🏆 <strong>Main Gate Unlocked By:</strong> ${escapedByPlayerName}</div>
+        <div>🗝️ <strong>Garden Key Found By:</strong> ${keyCarrierName || escapedByPlayerName} (${GARDEN_LANDMARKS[keyLandmarkIndex].name})</div>
+        <div>⏱️ <strong>Total Escape Time:</strong> ${escapeDurationSec} seconds</div>
+        <div>🌀 <strong>Teleport Gates Entered:</strong> ${gatesUsedCount}</div>
+        <div>💀 <strong>Team Reset Attempts:</strong> ${teamAttempts}</div>
+        <div>🛡️ <strong>Escaped Team:</strong> ${playerList}</div>
+      `;
+      document.getElementById('victoryOverlay').classList.remove('hidden');
+    }
+
+    /*************************************************************************
+     * 10. MASTER ANIMATION LOOP
+     *************************************************************************/
+    let lastFrameTime = performance.now();
+
+    function masterLoop(now) {
+      const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
+      lastFrameTime = now;
+
+      if (gameState === 'PLAYING') {
+        updateGame(dt);
+        renderPlayingState(now);
+      } else if (gameState === 'CINEMATIC') {
+        updateAndRenderCinematic(dt);
+      }
+
+      requestAnimationFrame(masterLoop);
+    }
+
+    requestAnimationFrame(masterLoop);
+  </script>
+</body>
+</html>
