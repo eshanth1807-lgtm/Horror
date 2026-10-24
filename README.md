@@ -1,55 +1,42 @@
-# Horror
+# Horror Escape
 
-A browser-based horror escape game. You wake up inside a house and must find the key before you can get out through the main gate.
-
-## Story
-
-[Optional: one or two sentences on how the player ends up in the house and what makes it scary.]
+A horror escape game built for the browser. You are trapped inside a house and must find the key that unlocks the main gate before you can get out.
 
 ## Gameplay
 
-- Explore the house and search rooms for clues and items.
-- Find the key that unlocks the main gate.
-- Reach the main gate before [time limit / the danger catches you, if applicable].
-- [Add any other rules, such as hiding spots, enemies, or puzzles.]
+- Explore the house and search its rooms for the key.
+- Find the key and make your way to the main gate to escape.
+- *[Add: any enemies, hazards, time limit, or win/lose conditions]*
 
 ## Controls
 
-| Action | Key / Input |
+| Action | Input |
 |---|---|
-| Move | [e.g. W A S D or arrow keys] |
-| Interact / pick up | [e.g. E or click] |
-| Inventory / hint | [e.g. I or H] |
-| Pause | [e.g. Esc] |
+| Move | *[e.g., Arrow keys / WASD]* |
+| Interact / pick up | *[e.g., E or click]* |
+| *[Other actions]* | *[Input]* |
 
-## How to Play
+## Getting Started
 
-1. Open `Horror_escape.html` in any modern web browser (Chrome, Edge, Firefox).
-2. [Optional: add a sound or lighting setting if the game uses it, e.g. "Use headphones for the full effect."]
-3. Explore, find the key, and escape.
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/eshanth1807-lgtm/Horror.git
+   ```
+2. Open `Horror_escape.html` in any modern web browser.
 
-No installation is needed. The game runs entirely in the browser.
+No installation or build step is required.
 
 ## Project Structure
 
 ## Built With
 
-- HTML
-- CSS
-- JavaScript
-- [Add any libraries or frameworks you used, or remove this section.]
+- HTML / JavaScript *[confirm, and add Canvas or other libraries if used]*
 
-## Future Improvements
+## Roadmap (optional)
 
-- [e.g. more rooms, multiple endings, better sound effects]
-- [e.g. save progress, mobile controls]
-
-## Author
-
-Eshanth C
-GitHub: [@eshanth1807-lgtm](https://github.com/eshanth1807-lgtm)
+- *[Ideas: more rooms, sound effects, multiple keys, difficulty levels]*
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0. See the [LICENSE](LICENSE) file for details.6
+Distributed under the GPL-3.0 License. See [LICENSE](LICENSE) for details.
 
